@@ -1,13 +1,13 @@
 # --- Start of new code for sqlite3 fix ---
-# This "magic" code must be at the very top of your script
-# It replaces the old system sqlite3 with the newer version
 __import__('pysqlite3')
 import sys
 sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 # --- End of new code for sqlite3 fix ---
 
-# Note the updated, simplified imports for LangChain Ollama!
-from langchain_ollama import Ollama, OllamaEmbeddings
+
+# THIS IS THE CORRECTED IMPORT SECTION
+from langchain_ollama.chat_models import ChatOllama
+from langchain_ollama.embeddings import OllamaEmbeddings
 
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -29,15 +29,15 @@ splits = text_splitter.split_documents(docs)
 
 # 3. Create Ollama embeddings and store in ChromaDB
 print("--- Creating embeddings and storing in ChromaDB ---")
-# Using the new OllamaEmbeddings class from the corrected import
 embeddings = OllamaEmbeddings(model="nomic-embed-text")
 vectorstore = Chroma.from_documents(documents=splits, embedding=embeddings)
 
 # 4. Define the RAG chain
 print("--- Defining RAG chain ---")
 
-# Define our LLM using the new Ollama class from the corrected import
-llm = Ollama(model="llama3:8b")
+# THIS IS THE CORRECTED CLASS NAME
+# Define our LLM using the ChatOllama class
+llm = ChatOllama(model="phi4-mini:3.8b")
 
 # Retrieve and generate using the relevant snippets of the document
 retriever = vectorstore.as_retriever()
