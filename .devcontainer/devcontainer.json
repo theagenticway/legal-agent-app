@@ -5,8 +5,8 @@
     "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   },
   "forwardPorts": [
-    8000, // For the FastAPI backend
-    11434 // For the Ollama API
+    8000,
+    11434
   ],
   "postCreateCommand": "bash ./.devcontainer/post-create.sh",
   "customizations": {
@@ -20,6 +20,5 @@
         "terminal.integrated.shell.linux": "/bin/bash"
       }
     }
-  },
-  "runArgs": ["--gpus=all"]
+  }
 }
