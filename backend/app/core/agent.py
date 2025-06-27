@@ -17,7 +17,12 @@ from .llm_factory import get_llm # <-- NEW IMPORT
 
 def create_agent_executor():
     # ...
-    tools = [...]
+    # Now it has three options!
+    tools = [
+        LegalDocumentRetrieverTool, 
+        WebSearchTool, 
+        CaseIntakeExtractorTool
+    ]
     prompt = hub.pull("hwchase17/react-chat")
 
     # Use the factory to get the LLM

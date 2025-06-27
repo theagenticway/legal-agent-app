@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from langchain_core.messages import HumanMessage
 from .core.agent import create_agent_executor
+from .core.tools import case_intake_extractor
 
 app = FastAPI(
     title="Legal Agent AI API",
@@ -33,6 +34,26 @@ async def perform_agent_query(query: Query):
         "chat_history": chat_history
     })
     return {"answer": response["output"]}
+# --- Add this new endpoint ---
+class IntakeRequest(BaseModel):
+    text: str
+
+@app.post("/case-intake")
+async def process_case_intake(request: IntakeRequest):
+    """
+    Accepts unstructured text and returns a structured case file.
+    This endpoint uses the Case Intake Extractor tool directly.
+    """
+    print(f"Received case intake request with text: {request.text[:100]}...")
+    
+    # We call the function directly, bypassing the agent for this specific task
+    extracted_data = case_intake_extractor(request.text)
+    
+    # In a real app, you would now save this 'extracted_data' to your database.
+    # For now, we'll just return it.
+    print(f"--- Extracted Data --- \n{extracted_data}")
+    
+    return extracted_data
 
 # --- Mount the static files LAST ---
 # This is a "catch-all" route, so it should be at the end.
