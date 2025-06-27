@@ -2,38 +2,42 @@
 
 from fastapi import FastAPI
 from pydantic import BaseModel
-from .core.rag_pipeline import create_rag_chain
+# Import our new agent creator function
+from .core.agent import create_agent_executor
+from langchain_core.messages import HumanMessage, AIMessage
 
-# Initialize the FastAPI app
 app = FastAPI(
     title="Legal Agent AI API",
     description="API for a legal agentic AI app using Ollama and RAG.",
     version="1.0.0",
 )
 
-# Create the RAG chain on startup.
-# This makes it so we don't have to rebuild it for every request.
-# NOTE: This is still a temporary solution. We will improve this in Module 2.
-rag_chain = create_rag_chain()
+# On startup, create the agent executor instead of the RAG chain
+agent_executor = create_agent_executor()
 
-# Define the request model for our endpoint using Pydantic
 class Query(BaseModel):
     text: str
 
-# Define our first API endpoint
-@app.post("/legal-research")
-async def perform_legal_research(query: Query):
-    """
-    Accepts a legal query and returns the answer from the RAG chain.
-    """
-    print(f"Received query: {query.text}")
-    
-    # Use the pre-loaded RAG chain to get an answer
-    response = rag_chain.invoke(query.text)
-    
-    return {"answer": response}
 
-# A simple root endpoint to confirm the server is running
+@app.post("/agent-query")
+async def perform_agent_query(query: Query):
+    """
+    Accepts a query and passes it to the agent executor for processing.
+    """
+    print(f"Received query for agent: {query.text}")
+
+    # For now, we'll use an empty chat history for each request.
+    # In a real app, you would fetch this from a database.
+    chat_history = [] 
+
+    # The agent executor expects a dictionary with "input" and "chat_history".
+    response = agent_executor.invoke({
+        "input": query.text,
+        "chat_history": chat_history
+    })
+    
+    # The agent's final answer is in the "output" key of the response dictionary.
+    return {"answer": response["output"]}
 @app.get("/")
 def read_root():
     return {"status": "Legal Agent AI API is running"}

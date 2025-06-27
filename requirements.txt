@@ -3,14 +3,15 @@ langchain
 langchain-core
 langchain-experimental
 
-# LLM, Vector DB, and new integrations
+# LLM, Vector DB, and specific integrations
 ollama
-langchain-ollama  # New package for Ollama
-chromadb
-pysqlite3-binary  # New package to fix sqlite3 issue
+langchain-ollama
+langchain-chroma  # The new, correct package for Chroma integration
+pysqlite3-binary  # Fix for sqlite3 issue
 
 # Document Loading
 pypdf
+langchain-community # Keep this for DirectoryLoader for now
 
 # Backend API
 fastapi
