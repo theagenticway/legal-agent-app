@@ -9,22 +9,23 @@ from . import config
 # backend/app/core/agent.py
 # ... imports ...
 # Import both tools now
-from .tools import LegalDocumentRetrieverTool, WebSearchTool
+# backend/app/core/agent.py
+# ... other imports ...
+# Remove the direct ChatOllama import, add the factory import
+from .tools import LegalDocumentRetrieverTool, WebSearchTool, CaseIntakeExtractorTool
+from .llm_factory import get_llm # <-- NEW IMPORT
 
 def create_agent_executor():
-    """
-    Creates and returns the main agent executor.
-    """
-    print("--- Initializing agent with tools ---")
-
-    # 1. Define the list of tools the agent can use.
-    # Now it has two options!
-    tools = [LegalDocumentRetrieverTool, WebSearchTool]
-
-    # ... the rest of the function remains the same ...
+    # ...
+    tools = [...]
     prompt = hub.pull("hwchase17/react-chat")
-    llm = ChatOllama(model=config.LLM_MODEL, temperature=0)
+
+    # Use the factory to get the LLM
+    llm = get_llm() # <-- USE THE FACTORY
+
     agent = create_react_agent(llm, tools, prompt)
+    # ... rest of the function ...#
+
     agent_executor = AgentExecutor(
         agent=agent, 
         tools=tools, 

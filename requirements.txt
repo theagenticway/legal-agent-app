@@ -24,3 +24,6 @@ python-dotenv
 langchain-community # For loaders and some tools
 tavily-python     # The new search tool library
 # ... other packages ...
+langchain-google-genai # For Google Gemini
+langchain-llama-index  # For LlamaIndex integration
+# ... other packages ...

@@ -3,6 +3,13 @@
 from langchain.tools import Tool
 from langchain_community.tools.tavily_search import TavilySearchResults
 from .rag_pipeline import create_rag_chain
+# ... other imports ...
+# Remove direct ChatOllama import, add the factory
+# from .schemas import CaseIntake
+from .llm_factory import get_llm # <-- NEW IMPORT
+
+# ... Tool 1 and Tool 2 ...
+
 
 # --- Tool 1: Internal Document Retriever ---
 rag_chain = create_rag_chain()
@@ -29,3 +36,17 @@ WebSearchTool = TavilySearchResults(
     current events, breaking news, or information about new case law or regulations
     that may not be in the internal knowledge base. For example, use it to answer 'What were the results of the latest Supreme Court ruling on AI copyright?'."""
 )
+# --- Tool 3: Case Intake Information Extractor ---
+""" class CaseIntakeInput(BaseModel):
+    """Input schema for the Case Intake tool."""
+    interview_summary: str = Field(description="...")
+ """
+# Use the factory to get a structured output LLM
+""" structured_llm = get_llm().with_structured_output(CaseIntake) # <-- USE THE FACTORY
+
+def case_intake_extractor(interview_summary: str) -> dict:
+    # ...
+    result = structured_llm.invoke(...)
+    return result.dict()
+
+CaseIntakeExtractorTool = Tool(...) """
