@@ -1,5 +1,6 @@
 # backend/app/main.py
-
+from dotenv import load_dotenv
+load_dotenv() # This line reads the .env file and loads the variables
 from fastapi import FastAPI
 from pydantic import BaseModel
 # Import our new agent creator function

@@ -1,3 +1,7 @@
+# System files
 __pycache__/
 *.pyc
 .DS_Store
+
+# Environment file - DO NOT COMMIT
+.env
