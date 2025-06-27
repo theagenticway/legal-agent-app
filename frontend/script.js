@@ -1,97 +1,116 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Get all our HTML elements ---
     const queryForm = document.getElementById('query-form');
     const queryInput = document.getElementById('query-input');
     const submitButton = document.getElementById('submit-button');
     const loadingIndicator = document.getElementById('loading-indicator');
-    const responseText = document.getElementById('response-text');
-    // At the top, with the other element selectors
+    const responseContainer = document.getElementById('response-container'); // We'll use this as our chat log
+    
     const audioUploadInput = document.getElementById('audio-upload-input');
     const transcribeButton = document.getElementById('transcribe-button');
     const transcribeLoadingIndicator = document.getElementById('transcribe-loading-indicator');
-// Add this new event listener inside the main 'DOMContentLoaded' listener
-transcribeButton.addEventListener('click', async () => {
-    const file = audioUploadInput.files[0];
-    if (!file) {
-        alert('Please select an audio file first.');
-        return;
+
+    // --- THE NEW MEMORY STORE ---
+    // This array will hold our conversation history.
+    let chatHistory = [];
+
+    // --- Function to display messages in the chat log ---
+    function addMessageToLog(sender, message) {
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('chat-message', `${sender}-message`);
+        
+        const senderElement = document.createElement('strong');
+        senderElement.textContent = sender === 'human' ? 'You' : 'Agent';
+        
+        const messageText = document.createElement('p');
+        messageText.textContent = message;
+
+        messageElement.appendChild(senderElement);
+        messageElement.appendChild(messageText);
+        responseContainer.appendChild(messageElement);
+        
+        // Scroll to the bottom
+        responseContainer.scrollTop = responseContainer.scrollHeight;
     }
 
-    // --- UI Loading State ---
-    transcribeButton.disabled = true;
-    transcribeLoadingIndicator.style.display = 'block';
 
-    // Use FormData to send the file
-    const formData = new FormData();
-    formData.append('audio_file', file);
-
-    try {
-        const response = await fetch('/transcribe-audio', {
-            method: 'POST',
-            body: formData, // No 'Content-Type' header needed, browser sets it for FormData
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Transcription failed.');
-        }
-
-        const data = await response.json();
-
-        // The magic! Put the transcribed text into the main query box.
-        queryInput.value = data.text;
-        queryInput.focus(); // Set focus to the input box for convenience
-
-    } catch (error) {
-        console.error('Error during transcription:', error);
-        alert(`Transcription Error: ${error.message}`);
-    } finally {
-        // --- Reset UI ---
-        transcribeButton.disabled = false;
-        transcribeLoadingIndicator.style.display = 'none';
-    }
-});
+    // --- MAIN AGENT QUERY FORM ---
     queryForm.addEventListener('submit', async (event) => {
-        // Prevent the default form submission which reloads the page
         event.preventDefault();
-
         const userQuery = queryInput.value.trim();
-        if (!userQuery) {
-            return;
-        }
+        if (!userQuery) return;
 
-        // --- Update UI for loading state ---
+        // Add user's message to UI and history
+        addMessageToLog('human', userQuery);
+        chatHistory.push({ role: 'human', content: userQuery });
+
+        // --- UI Loading State ---
         submitButton.disabled = true;
-        submitButton.textContent = 'Thinking...';
         loadingIndicator.style.display = 'block';
-        responseText.textContent = ''; // Clear previous response
+        queryInput.value = ''; // Clear input after sending
 
         try {
-            // --- Make the API call to our backend ---
+            // --- Make the API call, now sending the history ---
             const response = await fetch('/agent-query', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ text: userQuery }),
+                headers: { 'Content-Type': 'application/json' },
+                // Send the query AND the history
+                body: JSON.stringify({ 
+                    text: userQuery,
+                    history: chatHistory.slice(0, -1) // Send history *before* the current message
+                }),
             });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            
             const data = await response.json();
             
-            // --- Display the response ---
-            responseText.textContent = data.answer;
+            // Add agent's response to UI and history
+            addMessageToLog('agent', data.answer);
+            chatHistory.push({ role: 'ai', content: data.answer });
 
         } catch (error) {
             console.error('Error fetching response:', error);
-            responseText.textContent = 'An error occurred while fetching the response. Please check the console.';
+            addMessageToLog('agent', 'An error occurred. Please check the console.');
         } finally {
-            // --- Reset UI from loading state ---
+            // --- Reset UI ---
             submitButton.disabled = false;
-            submitButton.textContent = 'Ask Agent';
             loadingIndicator.style.display = 'none';
+        }
+    });
+
+
+    // --- AUDIO TRANSCRIPTION LISTENER (unchanged logic) ---
+    transcribeButton.addEventListener('click', async () => {
+        const file = audioUploadInput.files[0];
+        if (!file) {
+            alert('Please select an audio file first.');
+            return;
+        }
+        transcribeButton.disabled = true;
+        transcribeLoadingIndicator.style.display = 'block';
+        const formData = new FormData();
+        formData.append('audio_file', file);
+        try {
+            const response = await fetch('/transcribe-audio', {
+                method: 'POST',
+                body: formData,
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Transcription failed.');
+            }
+            const data = await response.json();
+            const fullAgentInput = `Based on the following interview transcript, please create a new case file:\n\n---\n\n${data.text}`;
+            queryInput.value = fullAgentInput;
+            queryInput.focus();
+            queryInput.style.height = '200px';
+        } catch (error) {
+            console.error('Error during transcription:', error);
+            alert(`Transcription Error: ${error.message}`);
+        } finally {
+            transcribeButton.disabled = false;
+            transcribeLoadingIndicator.style.display = 'none';
         }
     });
 });

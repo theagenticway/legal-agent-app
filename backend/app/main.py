@@ -6,7 +6,9 @@ load_dotenv()
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from langchain_core.messages import HumanMessage
+# Import List and Dict for type hinting
+from typing import List, Dict, Any 
+from langchain_core.messages import HumanMessage, AIMessage
 from .core.agent import create_agent_executor
 from .core.tools import case_intake_extractor
 import shutil
@@ -22,8 +24,12 @@ app = FastAPI(
 # --- Define API routes FIRST ---
 agent_executor = create_agent_executor()
 
+# --- UPDATED Pydantic Model ---
+# It now expects a 'history' field which is a list of dictionaries
 class Query(BaseModel):
     text: str
+    history: List[Dict[str, Any]]
+
 
 @app.post("/agent-query")
 async def perform_agent_query(query: Query):
@@ -32,10 +38,18 @@ async def perform_agent_query(query: Query):
     """
     print(f"Received query for agent: {query.text}")
     chat_history = []
+    for message in query.history:
+        if message.get("role") == "human":
+            chat_history.append(HumanMessage(content=message.get("content")))
+        elif message.get("role") == "ai":
+            chat_history.append(AIMessage(content=message.get("content")))
+
+    # --- Pass the history to the agent ---
     response = agent_executor.invoke({
         "input": query.text,
         "chat_history": chat_history
     })
+    
     return {"answer": response["output"]}
 # --- Add this new endpoint ---
 class IntakeRequest(BaseModel):

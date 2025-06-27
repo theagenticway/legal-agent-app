@@ -34,12 +34,15 @@ h1 {
     gap: 10px;
 }
 
+/* Change #query-input to #query-input, textarea */
 #query-input {
     flex-grow: 1;
     padding: 12px 15px;
     border: 1px solid #ccc;
     border-radius: 8px;
     font-size: 16px;
+    resize: vertical; /* Allow vertical resizing */
+    font-family: inherit; /* Inherit font from body */
 }
 
 #submit-button {
@@ -92,4 +95,42 @@ h1 {
     margin: 30px 0;
     border: 0;
     border-top: 1px solid #eee;
+}
+/* Add these styles to the end of styles.css */
+
+#response-container {
+    height: 400px; /* Give it a fixed height */
+    overflow-y: auto; /* Make it scrollable */
+    border: 1px solid #eee;
+    padding: 15px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    margin-top: 25px;
+}
+
+.chat-message {
+    margin-bottom: 15px;
+    padding: 10px 15px;
+    border-radius: 12px;
+    max-width: 80%;
+}
+
+.chat-message p {
+    margin: 5px 0 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.human-message {
+    background-color: #007bff;
+    color: white;
+    margin-left: auto; /* Align to the right */
+    border-bottom-right-radius: 0;
+}
+
+.agent-message {
+    background-color: #e9ecef;
+    color: #333;
+    margin-right: auto; /* Align to the left */
+    border-bottom-left-radius: 0;
 }
