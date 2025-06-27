@@ -1,0 +1,17 @@
+# Core AI and Agentic Framework
+langchain
+langchain-community
+langchain-core
+langchain-experimental
+
+# LLM and Vector DB Integration
+ollama
+chromadb  # Our local vector store
+pypdf     # For reading PDF documents
+
+# Backend API
+fastapi
+uvicorn
+
+# Utilities
+python-dotenv
