@@ -1,16 +1,12 @@
 # backend/app/core/tools.py
 
 from langchain.tools import Tool
-from langchain_community.tools.tavily_search import TavilySearchResults
-from .rag_pipeline import create_rag_chain
-# ... other imports ...
-# Remove direct ChatOllama import, add the factory
-from langchain_core.pydantic_v1 import BaseModel, Field # LangChain's internal Pydantic
+# The new, correct import for the Tavily tool
+from langchain_tavily import TavilySearch
+from pydantic import BaseModel, Field
 from .schemas import CaseIntake
-from . import config
-from .llm_factory import get_llm # <-- NEW IMPORT
-
-# ... Tool 1 and Tool 2 ...
+from .llm_factory import get_llm
+from .rag_pipeline import create_rag_chain
 
 
 # --- Tool 1: Internal Document Retriever ---
@@ -30,29 +26,27 @@ LegalDocumentRetrieverTool = Tool(
 
 
 # --- Tool 2: Web Search ---
-# The Tavily tool is pre-built and simple to initialize.
-# It will automatically use the TAVILY_API_KEY from your .env file.
-WebSearchTool = TavilySearchResults(
+# The class name has changed from TavilySearchResults to TavilySearch
+WebSearchTool = TavilySearch(
     name="Live Web Search",
     description="""Use this tool to search the live internet for recent information,
     current events, breaking news, or information about new case law or regulations
     that may not be in the internal knowledge base. For example, use it to answer 'What were the results of the latest Supreme Court ruling on AI copyright?'."""
 )
+
+
 # --- Tool 3: Case Intake Information Extractor ---
 class CaseIntakeInput(BaseModel):
     """Input schema for the Case Intake tool."""
     interview_summary: str = Field(description="The full, unstructured text from a client interview or case summary.")
 
-# Initialize a separate, dedicated LLM for this structured output task
-# Use the factory to get a structured output LLM
-structured_llm = get_llm().with_structured_output(CaseIntake) # <-- USE THE FACTORY
+structured_llm = get_llm().with_structured_output(CaseIntake)
 
 def case_intake_extractor(interview_summary: str) -> dict:
     """
     Processes an unstructured interview summary and extracts structured case data.
     """
     print("--- Running Case Intake Extractor ---")
-    # Invoke the structured LLM with the provided text
     result = structured_llm.invoke(f"Please extract the case details from the following text: \n\n{interview_summary}")
     return result.dict()
 

@@ -9,18 +9,22 @@ sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 # ---
 
 from langchain_community.document_loaders import TextLoader, DirectoryLoader
-from langchain_chroma import Chroma  # <-- CORRECTED IMPORT
+from langchain_chroma import Chroma
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_ollama import OllamaEmbeddings
-from langchain_ollama.chat_models import ChatOllama
 from langchain.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 
+# Import our configuration and our new factories
 from . import config
+from .llm_factory import get_llm, get_embedding_model
 
 def get_vector_store() -> Chroma:
-    embeddings = OllamaEmbeddings(model=config.EMBEDDING_MODEL)
+    """
+    Initializes and returns a Chroma vector store using the factory for embeddings.
+    """
+    # Use the factory to get the embedding model
+    embeddings = get_embedding_model()
 
     if os.path.exists(config.CHROMA_PERSIST_DIR):
         print(f"--- Loading existing vector store from {config.CHROMA_PERSIST_DIR} ---")
@@ -44,6 +48,9 @@ def get_vector_store() -> Chroma:
     return vector_store
 
 def create_rag_chain():
+    """
+    Creates and returns a RAG chain using factories for both LLM and embeddings.
+    """
     vector_store = get_vector_store()
     retriever = vector_store.as_retriever()
 
@@ -58,7 +65,8 @@ def create_rag_chain():
     {question}
     """)
 
-    llm = ChatOllama(model=config.LLM_MODEL)
+    # Use the factory to get the main LLM
+    llm = get_llm()
 
     chain = (
         {"context": retriever, "question": RunnablePassthrough()}

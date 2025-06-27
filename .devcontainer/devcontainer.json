@@ -8,7 +8,8 @@
     8000,
     11434
   ],
-  "postCreateCommand": "bash ./.devcontainer/post-create.sh",
+  // in .devcontainer/devcontainer.json
+"postCreateCommand": "sudo apt-get update && sudo apt-get install -y build-essential ffmpeg && bash ./.devcontainer/post-create.sh",
   "customizations": {
     "vscode": {
       "extensions": [

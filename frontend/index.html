@@ -10,7 +10,17 @@
     <div class="container">
         <h1>Legal Agent AI</h1>
         <p class="subtitle">Ask a question about your legal documents.</p>
-        
+        <!-- Add this entire section right after the <p class="subtitle"> tag -->
+<div class="upload-section">
+    <h3>Or, upload an audio interview</h3>
+    <input type="file" id="audio-upload-input" accept="audio/*">
+    <button id="transcribe-button">Transcribe Audio</button>
+    <div id="transcribe-loading-indicator" style="display: none;">
+        <p>Transcribing, this may take a moment...</p>
+    </div>
+</div>
+<hr class="divider">
+<!-- The existing <form> comes after this -->
         <form id="query-form">
             <input type="text" id="query-input" placeholder="e.g., What is the termination policy?" required>
             <button type="submit" id="submit-button">Ask Agent</button>

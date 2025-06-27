@@ -6,24 +6,22 @@ langchain-experimental
 # LLM, Vector DB, and specific integrations
 ollama
 langchain-ollama
-langchain-chroma  # The new, correct package for Chroma integration
-pysqlite3-binary  # Fix for sqlite3 issue
+langchain-chroma
+langchain-google-genai
+langchain-tavily      # <-- ADD THIS LINE
+pysqlite3-binary
+tavily-python
 
 # Document Loading
 pypdf
-langchain-community # Keep this for DirectoryLoader for now
+langchain-community
 
 # Backend API
 fastapi
 uvicorn
 
+#Python Whisper Library
+whisper-cpp-python
+
 # Utilities
 python-dotenv
-
-# ... other packages ...
-langchain-community # For loaders and some tools
-tavily-python     # The new search tool library
-# ... other packages ...
-langchain-google-genai # For Google Gemini
-langchain-llama-index  # For LlamaIndex integration
-# ... other packages ...

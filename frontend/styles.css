@@ -83,3 +83,13 @@ h1 {
     font-size: 15px;
     line-height: 1.6;
 }
+/* Add this to the end of styles.css */
+.upload-section {
+    text-align: center;
+    margin-bottom: 20px;
+}
+.divider {
+    margin: 30px 0;
+    border: 0;
+    border-top: 1px solid #eee;
+}

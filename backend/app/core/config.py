@@ -1,28 +1,27 @@
 # backend/app/core/config.py
 import os
 
-# --- LLM PROVIDER CONFIGURATION ---
+# --- PROVIDER CONFIGURATION ---
+# Choose your providers: "ollama" or "google"
 LLM_PROVIDER = "google"
+EMBEDDING_PROVIDER = "google" # <-- NEW: Set this to "google"
 
-# --- MODEL CONFIGURATION ---
+# --- MODEL CONFIGURATION (Provider-specific) ---
 # Models for Google
 GEMINI_MODEL = "gemini-1.5-flash-latest"
-# Note: For now, we will use local embeddings even with Gemini to save on costs.
-# In the future, you could add 
-GOOGLE_EMBEDDING_MODEL = "models/embedding-001"
+GOOGLE_EMBEDDING_MODEL = "models/embedding-001" # The standard Google embedding model
 
 # Models for Ollama
 OLLAMA_LLM_MODEL = "llama3:8b"
 OLLAMA_EMBEDDING_MODEL = "nomic-embed-text"
 
-# --- ACTIVE MODEL CONFIGURATION ---
-# This section sets the active models based on the provider chosen above.
-# The rest of our application will only use these generic variables.
-
-# For now, we will always use the local Ollama embeddings.
-# EMBEDDING_MODEL = OLLAMA_EMBEDDING_MODEL # <-- THIS IS THE KEY CHANGE
-EMBEDDING_MODEL = GOOGLE_EMBEDDING_MODEL # <-- THIS IS THE KEY CHANGE
-
+# --- ACTIVE EMBEDDING MODEL ---
+# This section sets the active embedding model based on the provider chosen above.
+# The rest of our application will only use this generic variable.
+if EMBEDDING_PROVIDER == "google":
+    EMBEDDING_MODEL = GOOGLE_EMBEDDING_MODEL
+else:
+    EMBEDDING_MODEL = OLLAMA_EMBEDDING_MODEL
 
 # --- VECTOR STORE & DATA CONFIGURATION ---
 CHROMA_PERSIST_DIR = "chroma_db"

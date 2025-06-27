@@ -9,6 +9,9 @@ from pydantic import BaseModel
 from langchain_core.messages import HumanMessage
 from .core.agent import create_agent_executor
 from .core.tools import case_intake_extractor
+import shutil
+from fastapi import UploadFile, File
+from .core.transcription import transcribe_audio_file
 
 app = FastAPI(
     title="Legal Agent AI API",
@@ -54,7 +57,34 @@ async def process_case_intake(request: IntakeRequest):
     print(f"--- Extracted Data --- \n{extracted_data}")
     
     return extracted_data
-
+# --- Add this new endpoint ---
+@app.post("/transcribe-audio")
+async def handle_audio_transcription(audio_file: UploadFile = File(...)):
+    """
+    Accepts an audio file, saves it temporarily, transcribes it,
+    and returns the text.
+    """
+    # Create a temporary path to save the uploaded file
+    temp_file_path = f"temp_{audio_file.filename}"
+    
+    try:
+        # Save the uploaded file to the temporary path
+        with open(temp_file_path, "wb") as buffer:
+            shutil.copyfileobj(audio_file.file, buffer)
+        
+        # Call our transcription service
+        transcribed_text = transcribe_audio_file(temp_file_path)
+        
+        return {"text": transcribed_text}
+        
+    except Exception as e:
+        return {"error": f"An error occurred: {str(e)}"}
+        
+    finally:
+        # Clean up the temporary file
+        import os
+        if os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
 # --- Mount the static files LAST ---
 # This is a "catch-all" route, so it should be at the end.
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")

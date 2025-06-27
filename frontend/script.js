@@ -4,7 +4,52 @@ document.addEventListener('DOMContentLoaded', () => {
     const submitButton = document.getElementById('submit-button');
     const loadingIndicator = document.getElementById('loading-indicator');
     const responseText = document.getElementById('response-text');
+    // At the top, with the other element selectors
+    const audioUploadInput = document.getElementById('audio-upload-input');
+    const transcribeButton = document.getElementById('transcribe-button');
+    const transcribeLoadingIndicator = document.getElementById('transcribe-loading-indicator');
+// Add this new event listener inside the main 'DOMContentLoaded' listener
+transcribeButton.addEventListener('click', async () => {
+    const file = audioUploadInput.files[0];
+    if (!file) {
+        alert('Please select an audio file first.');
+        return;
+    }
 
+    // --- UI Loading State ---
+    transcribeButton.disabled = true;
+    transcribeLoadingIndicator.style.display = 'block';
+
+    // Use FormData to send the file
+    const formData = new FormData();
+    formData.append('audio_file', file);
+
+    try {
+        const response = await fetch('/transcribe-audio', {
+            method: 'POST',
+            body: formData, // No 'Content-Type' header needed, browser sets it for FormData
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Transcription failed.');
+        }
+
+        const data = await response.json();
+
+        // The magic! Put the transcribed text into the main query box.
+        queryInput.value = data.text;
+        queryInput.focus(); // Set focus to the input box for convenience
+
+    } catch (error) {
+        console.error('Error during transcription:', error);
+        alert(`Transcription Error: ${error.message}`);
+    } finally {
+        // --- Reset UI ---
+        transcribeButton.disabled = false;
+        transcribeLoadingIndicator.style.display = 'none';
+    }
+});
     queryForm.addEventListener('submit', async (event) => {
         // Prevent the default form submission which reloads the page
         event.preventDefault();
