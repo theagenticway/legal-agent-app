@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Legal Agent AI</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Legal Agent AI</h1>
+        <p class="subtitle">Ask a question about your legal documents.</p>
+        
+        <form id="query-form">
+            <input type="text" id="query-input" placeholder="e.g., What is the termination policy?" required>
+            <button type="submit" id="submit-button">Ask Agent</button>
+        </form>
+        
+        <div id="loading-indicator" style="display: none;">
+            <p>Thinking...</p>
+        </div>
+        
+        <div id="response-container">
+            <pre id="response-text"></pre>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>

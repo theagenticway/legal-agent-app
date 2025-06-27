@@ -19,3 +19,8 @@ uvicorn
 
 # Utilities
 python-dotenv
+
+# ... other packages ...
+langchain-community # For loaders and some tools
+tavily-python     # The new search tool library
+# ... other packages ...
