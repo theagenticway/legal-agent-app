@@ -22,6 +22,7 @@ langchain-community
 # Backend API
 fastapi
 uvicorn
+python-multipart
 
 # Utilities
 python-dotenv
