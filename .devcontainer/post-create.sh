@@ -18,9 +18,6 @@ fi
 echo "---- Installing/Updating Ollama ----"
 curl -fsSL https://ollama.com/install.sh | sh
 
-echo "---- Installing Python dependencies ----"
-# This is the updated, more robust line
-python3 -m pip install --no-cache-dir -r requirements.txt
 
 echo "---- Starting Ollama in the background ----"
 nohup ollama serve > /workspaces/${CODESPACE_NAME}/ollama.log 2>&1 &
@@ -32,6 +29,17 @@ while ! curl -s http://localhost:11434 > /dev/null; do
 done
 echo "---- Ollama server is running! ----"
 
+# ... other commands ...
+
+echo "---- Installing Python dependencies from requirements.txt ----"
+python3 -m pip install --no-cache-dir -r requirements.txt
+
+echo "---- Force-building whisper-cpp-python with specific flags ----"
+# This command is a robust way to ensure whisper-cpp-python builds correctly
+CMAKE_ARGS="-DWHISPER_OPENBLAS=ON" pip install --no-cache-dir --force-reinstall --no-deps whisper-cpp-python
+
+echo "---- Starting Ollama in the background ----"
+# ... rest of the script ...
 echo "---- Pulling LLM models ----"
 ollama pull llama3:8b
 ollama pull nomic-embed-text

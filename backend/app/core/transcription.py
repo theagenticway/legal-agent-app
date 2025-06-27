@@ -1,13 +1,18 @@
 # backend/app/core/transcription.py
 
-from whisper_cpp_python import Whisper
+import whisper
 
 # Initialize the Whisper model. This will download the model weights
-# the first time it's run. We'll use the small, English-only model
-# for a good balance of speed and accuracy.
-print("--- Initializing Whisper STT model ---")
-whisper_model = Whisper(model_path="small.en")
-print("--- Whisper STT model initialized ---")
+# the first time it's run. We'll use the 'small.en' model.
+# The 'load_model' function handles everything.
+print("--- Initializing Whisper STT model (openai-whisper) ---")
+try:
+    # The model is downloaded to ~/.cache/whisper
+    whisper_model = whisper.load_model("small.en")
+    print("--- Whisper STT model initialized ---")
+except Exception as e:
+    print(f"Error loading Whisper model: {e}")
+    whisper_model = None
 
 
 def transcribe_audio_file(file_path: str) -> str:
@@ -20,12 +25,15 @@ def transcribe_audio_file(file_path: str) -> str:
     Returns:
         The transcribed text.
     """
+    if not whisper_model:
+        return "Whisper model not loaded. Cannot transcribe."
+        
     print(f"--- Transcribing audio file: {file_path} ---")
     
-    # The .transcribe() method does all the work.
-    result = whisper_model.transcribe(file_path)
+    # The .transcribe() method from this library is even simpler.
+    result = whisper_model.transcribe(file_path, fp16=False) # fp16=False for CPU
     
-    # The result is a dictionary; we want the 'text' key.
+    # The result dictionary contains the 'text' key.
     text = result.get("text", "")
     
     print("--- Transcription complete ---")

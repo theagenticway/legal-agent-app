@@ -8,9 +8,12 @@ ollama
 langchain-ollama
 langchain-chroma
 langchain-google-genai
-langchain-tavily      # <-- ADD THIS LINE
+langchain-tavily
 pysqlite3-binary
 tavily-python
+
+# Speech-to-Text (Official OpenAI package)
+openai-whisper
 
 # Document Loading
 pypdf
@@ -19,9 +22,6 @@ langchain-community
 # Backend API
 fastapi
 uvicorn
-
-#Python Whisper Library
-whisper-cpp-python
 
 # Utilities
 python-dotenv
