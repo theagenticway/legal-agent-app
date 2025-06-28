@@ -31,4 +31,5 @@ python-dotenv
 # Database
 sqlalchemy[asyncio]
 psycopg2-binary
+databases[postgresql]
 # ...

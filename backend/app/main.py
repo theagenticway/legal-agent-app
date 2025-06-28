@@ -137,7 +137,7 @@ async def handle_vapi_interaction(request: VapiWebhookRequest):
             # Call our processing service with the correct variable
             await process_call_transcript(final_transcript)
             print("--- Final Transcript Received ---")
-            print(full_transcript)
+            # print(full_transcript)
         # It's important to return an empty JSON here, not an error.
         return {}
 

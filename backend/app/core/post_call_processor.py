@@ -2,22 +2,23 @@
 
 import uuid
 from typing import List, Dict, Any
-
+from .schemas import VapiMessageOpenAI 
 from .llm_factory import get_llm
 from .tools import case_intake_extractor # We'll reuse our powerful extractor
 # Import our database and cases table object
 from .database import database, cases
 import json # For handling JSON data correctly
 
-def format_transcript_for_llm(transcript_messages: List[Dict[str, Any]]) -> str:
+def format_transcript_for_llm(transcript_messages: List[VapiMessageOpenAI]) -> str:
     """
     Takes the list of message objects from Vapi and formats it into a single
     human-readable string.
     """
     formatted_string = ""
     for message in transcript_messages:
-        role = message.get("role", "unknown").capitalize()
-        content = message.get("content", "").strip()
+        role = message.role.capitalize() if message.role else "Unknown"
+        content = message.content.strip() if message.content else ""
+        
         if content:
             formatted_string += f"{role}: {content}\n"
     return formatted_string
@@ -44,7 +45,7 @@ def generate_summary_and_notes(full_transcript_string: str) -> str:
     response = llm.invoke(prompt)
     return response.content
 
-async def process_call_transcript(final_transcript: List[Dict[str, Any]]):
+async def process_call_transcript(final_transcript: List[VapiMessageOpenAI]):
     """
     Main function to process the final transcript after a call ends.
     1. Generates a new Case ID.

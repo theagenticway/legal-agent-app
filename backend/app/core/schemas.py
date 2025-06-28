@@ -1,7 +1,7 @@
 # backend/app/core/schemas.py
 
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 class CaseIntake(BaseModel):
     """
@@ -13,3 +13,22 @@ class CaseIntake(BaseModel):
     case_type: str = Field(description="A brief, high-level classification of the case (e.g., 'Contract Dispute', 'Intellectual Property', 'Personal Injury', 'Wrongful Termination').")
     summary_of_facts: str = Field(description="A concise, one to two-paragraph summary of the key events and facts of the case as described in the input text.")
     key_dates: List[str] = Field(description="A list of important dates mentioned in the text, in MM/DD/YYYY format if possible.", default=[])
+
+    # VAPI MODELS (Make sure these are here)
+class VapiMessageOpenAI(BaseModel):
+    role: str
+    content: Optional[str] = None
+
+class VapiArtifact(BaseModel):
+    messagesOpenAIFormatted: List[VapiMessageOpenAI]
+
+class VapiPayload(BaseModel):
+    type: str
+    status: Optional[str] = None
+    endedReason: Optional[str] = None
+    artifact: Optional[VapiArtifact] = None 
+    conversation: Optional[List[VapiMessageOpenAI]] = None
+    call: Optional[Dict[str, Any]] = None
+
+class VapiWebhookRequest(BaseModel):
+    message: VapiPayload

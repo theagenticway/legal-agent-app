@@ -8,7 +8,7 @@ EMBEDDING_PROVIDER = "google" # <-- NEW: Set this to "google"
 
 # --- MODEL CONFIGURATION (Provider-specific) ---
 # Models for Google
-GEMINI_MODEL = "gemini-1.5-flash-latest"
+GEMINI_MODEL = "gemini-2.0-flash-lite"
 GOOGLE_EMBEDDING_MODEL = "models/embedding-001" # The standard Google embedding model
 
 # Models for Ollama
