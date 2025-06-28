@@ -26,3 +26,9 @@ python-multipart
 
 # Utilities
 python-dotenv
+
+# Add a new section for the database
+# Database
+sqlalchemy[asyncio]
+psycopg2-binary
+# ...
