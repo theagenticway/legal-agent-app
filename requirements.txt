@@ -7,10 +7,13 @@ langchain-experimental
 ollama
 langchain-ollama
 langchain-chroma
-langchain-google-genai
+langchain-google-genai>=0.0.12
 langchain-tavily
 pysqlite3-binary
 tavily-python
+pydantic
+google-generativeai
+protobuf
 
 # Speech-to-Text (Official OpenAI package)
 openai-whisper

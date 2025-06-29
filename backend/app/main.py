@@ -71,7 +71,7 @@ class Query(BaseModel):
 
 # Add Request to your FastAPI imports
 from fastapi import Request
-import datetime
+from datetime import datetime, timezone
 
 # ... other imports ...
 
@@ -98,7 +98,7 @@ async def health_check():
     """Basic health check"""
     return {
         "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 @app.get("/debug/llm-test")
@@ -326,7 +326,11 @@ async def perform_agent_query(query: Query):
         "input": query.text,
         "chat_history": chat_history
     })
-    
+     # --- ADD THIS DEBUG PRINT ---
+    print(f"DEBUG: AgentExecutor ainvoke raw response: {response}")
+    print(f"DEBUG: AgentExecutor output sent to frontend: {response.get('output', 'N/A')}")
+    # --- END DEBUG PRINT ---
+
     return {"answer": response["output"]}
 # --- Add this new endpoint ---
 class IntakeRequest(BaseModel):

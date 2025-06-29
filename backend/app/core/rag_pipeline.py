@@ -12,7 +12,7 @@ from langchain_community.document_loaders import TextLoader, DirectoryLoader
 from langchain_chroma import Chroma
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.prompts import ChatPromptTemplate
-from langchain_core.runnables import RunnablePassthrough
+from langchain_core.runnables import RunnablePassthrough, RunnableParallel
 from langchain_core.output_parsers import StrOutputParser
 
 # Import our configuration and our new factories
@@ -68,8 +68,15 @@ def create_rag_chain():
     # Use the factory to get the main LLM
     llm = get_llm()
 
+# --- THIS IS THE NEW, SIMPLIFIED CRUCIAL CHANGE ---
+    # The rag_chain will now directly accept the 'question' string as its input.
+    # We use RunnableParallel to map this single string input to both
+    # the 'context' (via retriever) and the 'question' for the prompt.
     chain = (
-        {"context": retriever, "question": RunnablePassthrough()}
+        {
+            "context": retriever,  # The retriever directly receives the input to this dict (which is the query string)
+            "question": RunnablePassthrough() # Passes the query string directly
+        }
         | prompt
         | llm
         | StrOutputParser()
