@@ -26,15 +26,21 @@ def transcribe_audio_file(file_path: str) -> str:
         The transcribed text.
     """
     if not whisper_model:
+        print("ERROR (transcription.py): Whisper model not loaded.")
         return "Whisper model not loaded. Cannot transcribe."
         
     print(f"--- Transcribing audio file: {file_path} ---")
     
-    # The .transcribe() method from this library is even simpler.
-    result = whisper_model.transcribe(file_path, fp16=False) # fp16=False for CPU
-    
-    # The result dictionary contains the 'text' key.
-    text = result.get("text", "")
-    
-    print("--- Transcription complete ---")
-    return text.strip()
+    try:
+        result = whisper_model.transcribe(file_path, fp16=False)
+        text = result.get("text", "").strip() # Ensure strip() is applied right away
+
+        print(f"DEBUG (transcription.py): Raw Whisper result keys: {result.keys()}")
+        print(f"DEBUG (transcription.py): Extracted text from Whisper: '{text[:100]}...'")
+        
+        return text
+    except Exception as e:
+        print(f"ERROR (transcription.py): Exception during Whisper transcription: {e}")
+        import traceback
+        traceback.print_exc()
+        return f"Transcription failed due to internal Whisper error: {e}"

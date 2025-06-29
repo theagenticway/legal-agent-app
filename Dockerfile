@@ -1,6 +1,9 @@
 # Use the official Python image
 FROM python:3.11-slim
 
+# Install ffmpeg and libsndfile-dev (libsndfile-dev is often needed for audio processing libraries)
+RUN apt-get update && apt-get install -y ffmpeg libsndfile-dev && rm -rf /var/lib/apt/lists/*
+
 # Set the working directory inside the container
 WORKDIR /workspace
 

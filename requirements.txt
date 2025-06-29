@@ -1,26 +1,27 @@
 # Core AI and Agentic Framework
-langchain
-langchain-core
+langchain>=0.2.0
+langchain-core>=0.2.0
 langchain-experimental
 
 # LLM, Vector DB, and specific integrations
 ollama
 langchain-ollama
 langchain-chroma
-langchain-google-genai>=0.0.12
+langchain-google-genai>=1.0.0
 langchain-tavily
 pysqlite3-binary
 tavily-python
 pydantic
 google-generativeai
 protobuf
+grpcio
 
 # Speech-to-Text (Official OpenAI package)
 openai-whisper
 
 # Document Loading
 pypdf
-langchain-community
+langchain-community>=0.0.30
 
 # Backend API
 fastapi

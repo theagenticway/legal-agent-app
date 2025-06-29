@@ -366,14 +366,28 @@ async def handle_audio_transcription(audio_file: UploadFile = File(...)):
         # Save the uploaded file to the temporary path
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(audio_file.file, buffer)
-        
+        print(f"DEBUG (main.py): Calling transcribe_audio_file for {temp_file_path}")
         # Call our transcription service
         transcribed_text = transcribe_audio_file(temp_file_path)
+        print(f"DEBUG (main.py): Transcribed text received: '{transcribed_text[:100]}...' (Type: {type(transcribed_text)})")
+        return {"text": transcribed_text}
         
+    # Ensure that transcribed_text is indeed a string. If it's empty, send an appropriate message.
+        if not isinstance(transcribed_text, str):
+            print(f"ERROR (main.py): transcribe_audio_file returned non-string: {transcribed_text}")
+            return {"error": "Transcription failed: Invalid output format from transcriber."}
+        if not transcribed_text.strip(): # Check if it's empty or just whitespace
+            print(f"WARNING (main.py): Transcribed text is empty for {audio_file.filename}")
+            # You might want to return an error, or a default message
+            return {"text": "No speech detected or transcription failed for the provided audio."}
+
         return {"text": transcribed_text}
         
     except Exception as e:
-        return {"error": f"An error occurred: {str(e)}"}
+        print(f"ERROR (main.py): Exception during transcription: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"error": f"An error occurred during transcription: {str(e)}"}
         
     finally:
         # Clean up the temporary file
