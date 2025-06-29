@@ -20,14 +20,14 @@ except Exception as e:
     print(f"ERROR: Failed to initialize RAG chain: {e}")
     rag_chain = None # Set to None to prevent further errors if it's critical
 
-def legal_document_retriever(query: str) -> str:
+async def legal_document_retriever(query: str) -> str:
     """Invokes the RAG chain to answer a question."""
     print(f"DEBUG: LegalDocumentRetriever called with query: '{query}'")
     if rag_chain is None:
         return "Error: Internal RAG system not initialized. Please check server logs."
     try:
         # Assuming rag_chain.invoke returns a string or has an 'answer' key
-        result = rag_chain.invoke(query)
+        result = await rag_chain.invoke(query)
         # If result is a dict (e.g., from LangChain Runnable), extract the content
         if isinstance(result, dict) and "answer" in result:
             final_result = result["answer"]
@@ -49,7 +49,8 @@ LegalDocumentRetrieverTool = Tool(
     func=legal_document_retriever,
     description="""Use this tool to answer questions about internal legal documents, 
     case files, contracts, and other documents stored within the firm's private knowledge base. 
-    This is your primary tool for retrieving specific information from the firm's data like 'What is the termination policy in the Innovate Corp agreement?'."""
+    This is your primary tool for retrieving specific information from the firm's data like 'What is the termination policy in the Innovate Corp agreement?'.""",
+    coroutine=legal_document_retriever
 )
 
 
