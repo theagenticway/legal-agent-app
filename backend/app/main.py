@@ -87,67 +87,79 @@ async def shutdown():
 
 # ... rest of your endpoints ...
 @app.post("/api/vapi/agent-interaction")
+
+
+@app.post("/api/vapi/agent-interaction")
+
+@app.post("/api/vapi/agent-interaction")
 async def handle_vapi_interaction(request: VapiWebhookRequest):
     """
     Handles all types of webhook events from Vapi.ai.
-    It checks the message type and only acts on conversation updates.
+    It checks the message type and only acts on user messages.
     """
     message_payload = request.message
 
     # --- ROUTE 1: Handle a live conversation turn ---
     if message_payload.type == "conversation-update" and message_payload.conversation:
-        
         conversation_history = message_payload.conversation
         last_message = conversation_history[-1] if conversation_history else None
 
+        # --- All agent logic is INSIDE this block ---
         if last_message and last_message.role == "user":
             user_input = last_message.content
-            print(f"--- Live Turn Received: {user_input} ---")
+            
+            caller_phone_number = "Unknown"
+            if message_payload.call and message_payload.call.get("customer"):
+                caller_phone_number = message_payload.call.get("customer").get("number", "Unknown")
+            
+            print(f"--- Live Turn Received from {caller_phone_number}: {user_input} ---")
 
-            # Convert Vapi's history to LangChain's format
             langchain_history = []
             for msg in conversation_history[:-1]:
                 if msg.role == "user":
                     langchain_history.append(HumanMessage(content=msg.content))
-                # Vapi uses 'assistant' or 'bot', LangChain expects 'ai'
                 elif msg.role in ["assistant", "bot"]:
                     langchain_history.append(AIMessage(content=msg.content))
             
-            # Invoke the agent
+            agent_input = f"A user from phone number {caller_phone_number} says: {user_input}"
+            
             agent_response = agent_executor.invoke({
-                "input": user_input,
+                "input": agent_input,
                 "chat_history": langchain_history
             })
             
-            agent_text_output = agent_response.get("output", "I had a problem processing that.")
-            print(f"--- Agent Response: {agent_text_output} ---")
+            agent_text_output = agent_response.get("output", "I'm sorry, something went wrong.")
+            print(f"--- Agent Response to Vapi: {agent_text_output} ---")
             
-            # Return the response for Vapi to speak
             return {"message": agent_text_output}
 
     # --- ROUTE 2: Handle the end-of-call summary ---
     elif message_payload.type == "status-update" and message_payload.status == "ended":
         print(f"--- Call Ended. Reason: {message_payload.endedReason} ---")
-         # Check if the artifact with the transcript exists
+
+        # --- All processing logic is INSIDE this block ---
         if message_payload.artifact and message_payload.artifact.messagesOpenAIFormatted:
-            
-            # Correctly assign the transcript to a variable
             final_transcript = message_payload.artifact.messagesOpenAIFormatted
             
-            # Call our processing service with the correct variable
-            await process_call_transcript(final_transcript)
-            print("--- Final Transcript Received ---")
-            # print(full_transcript)
-        # It's important to return an empty JSON here, not an error.
-        return {}
+            caller_phone_number = "Unknown"
+            vapi_call_id = None
+            
+            if message_payload.call:
+                vapi_call_id = message_payload.call.get("id")
+                if message_payload.call.get("customer"):
+                    caller_phone_number = message_payload.call.get("customer").get("number", "Unknown")
+
+            await process_call_transcript(final_transcript, caller_phone_number, vapi_call_id)
+        else:
+            print("--- No final transcript artifact found in end-of-call payload. ---")
 
     # --- Default Route: Ignore other event types ---
     else:
-        print(f"--- Ignoring Vapi event of type: {message_payload.type} ---")
-        return {}
-# ... rest of your file ...
+        event_type = message_payload.type if message_payload else "Unknown"
+        print(f"--- Ignoring Vapi event of type: {event_type} ---")
 
-
+    # Return an empty response if no action was taken
+    return {}
 
 @app.post("/agent-query")
 async def perform_agent_query(query: Query):

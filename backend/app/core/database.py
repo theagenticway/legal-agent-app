@@ -13,7 +13,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.sql import func
 from databases import Database
-
+from sqlalchemy.dialects.postgresql import JSONB
 # Get the database URL from environment variables set in docker-compose.yml
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -27,10 +27,12 @@ cases = Table(
     metadata,
     Column("id", Integer, primary_key=True),
     Column("case_id", String(50), unique=True, nullable=False),
+    Column("caller_phone_number", String(50)),
     Column("status", String(50), default="Pending Review"),
     Column("structured_intake", JSON),
     Column("call_summary", Text),
     Column("full_transcript", Text),
+    Column("follow_up_notes", JSONB), 
     Column("created_at", DateTime, default=func.now(), nullable=False),
 )
 
