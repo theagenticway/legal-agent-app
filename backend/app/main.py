@@ -17,7 +17,8 @@ from .core.transcription import transcribe_audio_file
 from fastapi import Request
 from .core.post_call_processor import process_call_transcript
 # Import the database object and the table creation function
-from .core.database import database, create_db_and_tables
+from .core.database import database, cases, create_db_and_tables
+from sqlalchemy import select
 
 # --- Call this function once at the top level ---
 # This will create the 'cases' table if it doesn't exist
@@ -175,7 +176,7 @@ async def perform_agent_query(query: Query):
             chat_history.append(AIMessage(content=message.get("content")))
 
     # --- Pass the history to the agent ---
-    response = agent_executor.invoke({
+    response = await agent_executor.ainvoke({
         "input": query.text,
         "chat_history": chat_history
     })
@@ -229,6 +230,24 @@ async def handle_audio_transcription(audio_file: UploadFile = File(...)):
         import os
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
+
+# --- ADD THIS NEW ENDPOINT ---
+@app.get("/api/cases")
+async def get_all_cases():
+    """
+    Fetches all case records from the database.
+    """
+    print("--- Fetching all cases from the database ---")
+    try:
+        query = select(cases)
+        all_cases = await database.fetch_all(query)
+        # Convert the list of RowProxy objects to a list of dictionaries
+        return [dict(case) for case in all_cases]
+    except Exception as e:
+        print(f"Error fetching cases: {e}")
+        # Use FastAPI's error handling in a real app
+        return {"error": "Could not fetch cases"}
+
 # --- Mount the static files LAST ---
 # This is a "catch-all" route, so it should be at the end.
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")

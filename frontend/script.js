@@ -9,7 +9,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const audioUploadInput = document.getElementById('audio-upload-input');
     const transcribeButton = document.getElementById('transcribe-button');
     const transcribeLoadingIndicator = document.getElementById('transcribe-loading-indicator');
+// In script.js, at the top of the 'DOMContentLoaded' event listener
 
+// --- VIEW SWITCHING LOGIC ---
+const navLinks = document.querySelectorAll('.nav-link');
+const views = document.querySelectorAll('.view');
+
+navLinks.forEach(link => {
+    link.addEventListener('click', (event) => {
+        event.preventDefault();
+
+        // Manage active state for links
+        navLinks.forEach(l => l.classList.remove('active'));
+        link.classList.add('active');
+
+        // Manage active state for views
+        const targetViewId = link.getAttribute('data-view');
+        views.forEach(view => {
+            if (view.id === targetViewId) {
+                view.classList.add('active-view');
+            } else {
+                view.classList.remove('active-view');
+            }
+        });
+    });
+});
     // --- THE NEW MEMORY STORE ---
     // This array will hold our conversation history.
     let chatHistory = [];
@@ -113,4 +137,108 @@ document.addEventListener('DOMContentLoaded', () => {
             transcribeLoadingIndicator.style.display = 'none';
         }
     });
+// In script.js, inside the 'DOMContentLoaded' event listener
+
+// --- CASE DASHBOARD LOGIC ---
+
+// 1. Define options for List.js
+const dashboardOptions = {
+    valueNames: [
+        'case_id',
+        'status',
+        'caller_phone_number',
+        // Format the date before displaying
+        { name: 'created_at', attr: 'data-timestamp' } 
+    ],
+    // This tells List.js how to create each new row from the data
+    item: `<tr>
+               <td class="case_id"></td>
+               <td class="status"></td>
+               <td class="caller_phone_number"></td>
+               <td class="created_at" data-timestamp=""></td>
+               <td><button class="summarize-btn">Summarize</button></td>
+           </tr>`
+};
+
+// 2. Initialize List.js
+const caseList = new List('cases-dashboard', dashboardOptions);
+
+// 3. Function to fetch data and populate the table
+async function loadCases() {
+    try {
+        const response = await fetch('/api/cases');
+        if (!response.ok) throw new Error('Failed to fetch cases');
+        
+        let cases = await response.json();
+        
+        // Format the data before adding it to the list
+        cases = cases.map(caseItem => {
+            return {
+                ...caseItem,
+                // Format the date for display, but keep timestamp for sorting
+                created_at: new Date(caseItem.created_at).toLocaleString()
+            };
+        });
+
+        if (cases.length > 0) {
+            caseList.clear(); // Clear the "Loading..." row
+            caseList.add(cases); // Add all the new data
+        } else {
+            caseList.clear();
+            // Handle case where there are no records
+            const tbody = document.querySelector('#cases-dashboard .list');
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No cases found in the database.</td></tr>';
+        }
+
+    } catch (error) {
+        console.error('Error loading cases:', error);
+    }
+}
+
+// 4. Logic for the "Summarize" button
+// We use event delegation to handle clicks on buttons that are added dynamically
+document.querySelector('#cases-dashboard .list').addEventListener('click', (event) => {
+    if (event.target.classList.contains('summarize-btn')) {
+        // Find the parent row of the button that was clicked
+        const row = event.target.closest('tr');
+        // Get the case ID from that row
+        const caseId = row.querySelector('.case_id').textContent;
+        
+        // Find the full case data from our list
+        const caseItem = caseList.get('case_id', caseId)[0].values();
+        
+        // Construct a detailed prompt for the agent
+        const summaryPrompt = `Please provide a concise summary of the following case, including the initial intake and any follow-up notes.
+        
+        Case ID: ${caseItem.case_id}
+        Status: ${caseItem.status}
+        Initial Transcript:
+        ---
+        ${caseItem.full_transcript}
+        ---
+        
+        Follow-up Notes:
+        ---
+        ${JSON.stringify(caseItem.follow_up_notes, null, 2)}
+        ---
+        
+        Provide your summary now:`;
+        
+        // Put the prompt in the main chat box and add it to the chat UI
+        addMessageToLog('human', summaryPrompt);
+        chatHistory.push({ role: 'human', content: summaryPrompt });
+
+        // Set the value for submission
+        queryInput.value = summaryPrompt;
+        queryForm.requestSubmit(); // Automatically submit the form
+
+        // Scroll to the top to see the chat
+        window.scrollTo(0, 0);
+    }
+});
+
+// 5. Load the cases when the page loads
+loadCases();
+// --- END OF CASE DASHBOARD LOGIC ---
+
 });

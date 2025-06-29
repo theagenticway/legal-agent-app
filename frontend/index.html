@@ -3,37 +3,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Legal Agent AI</title>
+    <title>The Agentic Way - Legal AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <script src="//cdnjs.cloudflare.com/ajax/libs/list.js/2.3.1/list.min.js"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
 </head>
 <body>
-    <div class="container">
-        <h1>Legal Agent AI</h1>
-        <p class="subtitle">Ask a question about your legal documents.</p>
-        <!-- Add this entire section right after the <p class="subtitle"> tag -->
-<div class="upload-section">
-    <h3>Or, upload an audio interview</h3>
-    <input type="file" id="audio-upload-input" accept="audio/*">
-    <button id="transcribe-button">Transcribe Audio</button>
-    <div id="transcribe-loading-indicator" style="display: none;">
-        <p>Transcribing, this may take a moment...</p>
+    <div class="app-container">
+        <!-- TOP HEADER -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="logo">
+                    <i data-feather="box"></i>
+                    <span>The Agentic Way</span>
+                </div>
+                <nav class="main-nav">
+                    <a href="#" class="nav-link active">Dashboard</a>
+                    <a href="#" class="nav-link">Intake</a>
+                    <a href="#" class="nav-link">Contracts</a>
+                    <a href="#" class="nav-link">Research</a>
+                </nav>
+            </div>
+            <div class="header-right">
+                <div class="search-bar">
+                    <i data-feather="search"></i>
+                    <input type="text" id="global-search" class="search" placeholder="Search cases...">
+                </div>
+                <div class="user-profile">
+                    <img src="https://i.pravatar.cc/32?u=legal-ai" alt="User Avatar">
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN CONTENT GRID -->
+        <main class="main-content">
+            <!-- LEFT COLUMN: CHAT -->
+            <section class="chat-container">
+                <h2 class="section-title">Agent Chat</h2>
+                <div class="chat-messages" id="response-container">
+                    <!-- Chat messages will be added here by JS -->
+                </div>
+                <div id="loading-indicator" style="display: none;">
+                    <div class="spinner"></div><span>Agent is thinking...</span>
+                </div>
+                <form id="query-form" class="chat-form">
+                    <textarea id="query-input" placeholder="Ask the agent..." required rows="1"></textarea>
+                    <button type="submit" id="submit-button" title="Send"><i data-feather="send"></i></button>
+                </form>
+            </section>
+
+            <!-- RIGHT COLUMN: DASHBOARD & UPLOAD -->
+            <div class="right-panel">
+                <section class="dashboard-container" id="cases-dashboard">
+                    <h2 class="section-title">Case Dashboard</h2>
+                    <h3 class="subsection-title">Data from DB</h3>
+                    <div class="table-wrapper">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th class="sort" data-sort="case_id">Case ID</th>
+                                    <th class="sort" data-sort="status">Status</th>
+                                    <th class="sort" data-sort="caller_phone_number">Phone</th>
+                                    <th class="sort" data-sort="created_at">Created At</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="list">
+                                <!-- Table rows injected by List.js -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="file-upload-container">
+                    <h3 class="subsection-title">Intake from File</h3>
+                    <div class="dropzone" id="file-upload-zone">
+                        <div class="dropzone-inner">
+                            <i data-feather="upload-cloud"></i>
+                            <p><b>Drag and drop audio file here</b></p>
+                            <p class="small-text">or click to select file</p>
+                            <input type="file" id="audio-upload-input" accept="audio/*" class="dropzone-input">
+                        </div>
+                    </div>
+                    <button id="transcribe-button">Transcribe Audio</button>
+                </section>
+            </div>
+        </main>
     </div>
-</div>
-<hr class="divider">
-<!-- The existing <form> comes after this -->
-        <form id="query-form">
-<textarea id="query-input" placeholder="Ask a question or see transcribed text here..." required rows="3"></textarea>            <button type="submit" id="submit-button">Ask Agent</button>
-        </form>
-        
-        <div id="loading-indicator" style="display: none;">
-            <p>Thinking...</p>
-        </div>
-        
-        <div id="response-container">
-            <pre id="response-text"></pre>
-        </div>
-    </div>
-    
+
     <script src="script.js"></script>
+    <script>feather.replace();</script>
 </body>
 </html>

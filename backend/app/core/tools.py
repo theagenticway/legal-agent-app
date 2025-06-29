@@ -13,11 +13,36 @@ from sqlalchemy import select
 import json
 
 # --- Tool 1: Internal Document Retriever ---
-rag_chain = create_rag_chain()
+try:
+    rag_chain = create_rag_chain()
+    print("DEBUG: RAG chain initialized successfully.")
+except Exception as e:
+    print(f"ERROR: Failed to initialize RAG chain: {e}")
+    rag_chain = None # Set to None to prevent further errors if it's critical
 
 def legal_document_retriever(query: str) -> str:
     """Invokes the RAG chain to answer a question."""
-    return rag_chain.invoke(query)
+    print(f"DEBUG: LegalDocumentRetriever called with query: '{query}'")
+    if rag_chain is None:
+        return "Error: Internal RAG system not initialized. Please check server logs."
+    try:
+        # Assuming rag_chain.invoke returns a string or has an 'answer' key
+        result = rag_chain.invoke(query)
+        # If result is a dict (e.g., from LangChain Runnable), extract the content
+        if isinstance(result, dict) and "answer" in result:
+            final_result = result["answer"]
+        elif isinstance(result, str):
+            final_result = result
+        else:
+            final_result = str(result) # Fallback to string conversion
+            
+        print(f"DEBUG: LegalDocumentRetriever returned: {final_result[:200]}...") # Print partial result
+        return final_result
+    except Exception as e:
+        print(f"ERROR: Exception in LegalDocumentRetriever for query '{query}': {e}")
+        import traceback
+        traceback.print_exc() # Print full traceback for deeper debugging
+        return f"An error occurred while retrieving internal legal documents: {e}"
 
 LegalDocumentRetrieverTool = Tool(
     name="Internal_Legal_Document_Retriever",
