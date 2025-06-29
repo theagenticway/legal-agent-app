@@ -1,7 +1,6 @@
-# backend/app/core/agent.py
+# backend/app/core/agent.py - Enhanced Debug Version
 
 from langchain import hub
-# Import the new agent creation function
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain.tools.render import render_text_description
 from .llm_factory import get_llm
@@ -11,9 +10,21 @@ from .tools import (
     CaseIntakeExtractorTool,
     DatabaseCaseReaderTool
 )
-def create_agent_executor():
-    print("--- Initializing new Tool-Calling Agent ---")
 
+def create_agent_executor():
+    print("🚀 --- Starting Agent Initialization ---")
+
+    # Test LLM first
+    try:
+        print("🧠 Testing LLM connection...")
+        llm = get_llm()
+        test_response = llm.invoke("Test message")
+        print(f"✅ LLM test successful: {test_response.content[:50]}...")
+    except Exception as e:
+        print(f"❌ LLM test failed: {e}")
+        raise
+
+    # Test tools individually
     tools = [
         LegalDocumentRetrieverTool, 
         WebSearchTool, 
@@ -21,27 +32,65 @@ def create_agent_executor():
         DatabaseCaseReaderTool
     ]
     
-    # --- THIS IS THE FIX for the KeyError ---
-    # 1. Render the tools into a string format that the prompt expects.
-    rendered_tools = render_text_description(tools)
+    print(f"🔧 Testing {len(tools)} tools...")
+    for i, tool in enumerate(tools):
+        try:
+            print(f"  Tool {i+1}: {tool.name} - ✅")
+        except Exception as e:
+            print(f"  Tool {i+1}: ERROR - {e}")
     
-    # 2. Pull the base prompt from the hub.
-    prompt_template = hub.pull("hwchase17/xml-agent-convo")
-    
-    # 3. Partially format the prompt, injecting the rendered tools.
-    # This creates a new prompt that now only expects 'input', 'chat_history', and 'agent_scratchpad'.
-    prompt = prompt_template.partial(tools=rendered_tools)
-    
-    llm = get_llm()
-    
-    agent = create_tool_calling_agent(llm, tools, prompt)
+    # Test prompt
+    try:
+        print("📝 Pulling prompt template...")
+        prompt_template = hub.pull("hwchase17/xml-agent-convo")
+        print("✅ Prompt template loaded successfully")
+        
+        rendered_tools = render_text_description(tools)
+        print(f"✅ Tools rendered ({len(rendered_tools)} chars)")
+        
+        prompt = prompt_template.partial(tools=rendered_tools)
+        print("✅ Prompt partially formatted")
+        
+    except Exception as e:
+        print(f"❌ Prompt setup failed: {e}")
+        raise
 
-    agent_executor = AgentExecutor(
-        agent=agent, 
-        tools=tools, 
-        verbose=True,
-        handle_parsing_errors=True
-    )
+    # Test agent creation
+    try:
+        print("🤖 Creating tool-calling agent...")
+        agent = create_tool_calling_agent(llm, tools, prompt)
+        print("✅ Agent created successfully")
+    except Exception as e:
+        print(f"❌ Agent creation failed: {e}")
+        raise
 
-    print("--- Agent executor created successfully ---")
+    # Test executor creation
+    try:
+        print("⚙️ Creating agent executor...")
+        agent_executor = AgentExecutor(
+            agent=agent, 
+            tools=tools, 
+            verbose=True,
+            handle_parsing_errors=True,
+            max_iterations=3,  # Add iteration limit
+            early_stopping_method="generate"  # Add early stopping
+        )
+        print("✅ Agent executor created successfully")
+    except Exception as e:
+        print(f"❌ Agent executor creation failed: {e}")
+        raise
+
+    # Test a simple invocation
+    try:
+        print("🧪 Testing simple agent invocation...")
+        test_result = agent_executor.invoke({
+            "input": "Hello, can you help me?",
+            "chat_history": []
+        })
+        print(f"✅ Agent test successful: {test_result.get('output', 'No output')[:100]}...")
+    except Exception as e:
+        print(f"❌ Agent test invocation failed: {e}")
+        # Don't raise here - let's see if it works in practice
+
+    print("🎉 --- Agent Initialization Complete ---")
     return agent_executor

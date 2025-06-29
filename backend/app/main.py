@@ -80,88 +80,234 @@ import datetime
 # --- Add database connection event handlers ---
 @app.on_event("startup")
 async def startup():
-    await database.connect()
+    try:
+        await database.connect()
+        print("✅ Database connected successfully")
+    except Exception as e:
+        print(f"❌ Database connection failed: {e}")
+        raise
 
 @app.on_event("shutdown")
 async def shutdown():
     await database.disconnect()
 
+# Add these endpoints to your main.py for basic health checks
+
+@app.get("/debug/health")
+async def health_check():
+    """Basic health check"""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+@app.get("/debug/llm-test")
+async def test_llm():
+    """Test LLM connectivity"""
+    try:
+        from backend.app.core.llm_factory import get_llm
+        llm = get_llm()
+        response = llm.invoke("Say 'Hello World'")
+        return {
+            "status": "success",
+            "response": response.content,
+            "llm_type": type(llm).__name__
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
+
+@app.get("/debug/database-test")
+async def test_database():
+    """Test database connectivity"""
+    try:
+        from backend.app.core.database import database
+        # Simple query to test connection
+        query = "SELECT 1 as test"
+        result = await database.fetch_one(query)
+        return {
+            "status": "success",
+            "result": dict(result) if result else None
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
+
+@app.get("/debug/tools-test")
+async def test_tools():
+    """Test individual tools"""
+    results = {}
+    
+    # Test Legal Document Retriever
+    try:
+        from backend.app.core.tools import legal_document_retriever
+        result = legal_document_retriever("test query")
+        results["legal_doc_retriever"] = {"status": "success", "result_length": len(str(result))}
+    except Exception as e:
+        results["legal_doc_retriever"] = {"status": "error", "error": str(e)}
+    
+    # Test Case Intake Extractor
+    try:
+        from backend.app.core.tools import case_intake_extractor
+        result = case_intake_extractor("Client John Doe has a contract dispute with ABC Corp.")
+        results["case_intake_extractor"] = {"status": "success", "result": result}
+    except Exception as e:
+        results["case_intake_extractor"] = {"status": "error", "error": str(e)}
+    
+    return results
 # ... rest of your endpoints ...
-@app.post("/api/vapi/agent-interaction")
+# @app.post("/api/vapi/agent-interaction")
 
 
-@app.post("/api/vapi/agent-interaction")
+# @app.post("/api/vapi/agent-interaction")
 
 @app.post("/api/vapi/agent-interaction")
 async def handle_vapi_interaction(request: VapiWebhookRequest):
     """
-    Handles all types of webhook events from Vapi.ai.
-    It checks the message type and only acts on user messages.
+    Enhanced debug version of webhook handler
     """
-    message_payload = request.message
+    print(f"\n🔔 === WEBHOOK RECEIVED ===")
+    print(f"📋 Message Type: {request.message.type}")
+    print(f"📋 Message Status: {getattr(request.message, 'status', 'N/A')}")
+    
+    try:
+        message_payload = request.message
+        
+        # Log the full payload structure for debugging
+        print(f"📦 Payload keys: {list(message_payload.__dict__.keys())}")
 
-    # --- ROUTE 1: Handle a live conversation turn ---
-    if message_payload.type == "conversation-update" and message_payload.conversation:
-        conversation_history = message_payload.conversation
-        last_message = conversation_history[-1] if conversation_history else None
+        # --- ROUTE 1: Handle a live conversation turn ---
+        if message_payload.type == "conversation-update":
+            print("📞 Processing conversation-update...")
+            
+            if not message_payload.conversation:
+                print("❌ No conversation data in payload")
+                return {"message": "No conversation data received"}
+            
+            conversation_history = message_payload.conversation
+            print(f"📚 Conversation length: {len(conversation_history)}")
+            
+            # Log all messages in conversation
+            for i, msg in enumerate(conversation_history):
+                print(f"  Message {i+1}: {msg.role} -> {msg.content[:50] if msg.content else 'None'}...")
+            
+            last_message = conversation_history[-1] if conversation_history else None
+            
+            if not last_message:
+                print("❌ No last message found")
+                return {"message": "No message to process"}
+                
+            print(f"📝 Last message role: {last_message.role}")
+            print(f"📝 Last message content: {last_message.content}")
 
-        # --- All agent logic is INSIDE this block ---
-        if last_message and last_message.role == "user":
-            user_input = last_message.content
-            
-            caller_phone_number = "Unknown"
-            if message_payload.call and message_payload.call.get("customer"):
-                caller_phone_number = message_payload.call.get("customer").get("number", "Unknown")
-            
-            print(f"--- Live Turn Received from {caller_phone_number}: {user_input} ---")
-
-            langchain_history = []
-            for msg in conversation_history[:-1]:
-                if msg.role == "user":
-                    langchain_history.append(HumanMessage(content=msg.content))
-                elif msg.role in ["assistant", "bot"]:
-                    langchain_history.append(AIMessage(content=msg.content))
-            
-            agent_input = f"A user from phone number {caller_phone_number} says: {user_input}"
-            
-            agent_response = agent_executor.invoke({
-                "input": agent_input,
-                "chat_history": langchain_history
-            })
-            
-            agent_text_output = agent_response.get("output", "I'm sorry, something went wrong.")
-            print(f"--- Agent Response to Vapi: {agent_text_output} ---")
-            
-            return {"message": agent_text_output}
-
-    # --- ROUTE 2: Handle the end-of-call summary ---
-    elif message_payload.type == "status-update" and message_payload.status == "ended":
-        print(f"--- Call Ended. Reason: {message_payload.endedReason} ---")
-
-        # --- All processing logic is INSIDE this block ---
-        if message_payload.artifact and message_payload.artifact.messagesOpenAIFormatted:
-            final_transcript = message_payload.artifact.messagesOpenAIFormatted
-            
-            caller_phone_number = "Unknown"
-            vapi_call_id = None
-            
-            if message_payload.call:
-                vapi_call_id = message_payload.call.get("id")
-                if message_payload.call.get("customer"):
+            if last_message.role == "user":
+                user_input = last_message.content
+                
+                if not user_input or user_input.strip() == "":
+                    print("❌ Empty user input")
+                    return {"message": "I didn't receive any message content"}
+                
+                # Get caller info
+                caller_phone_number = "Unknown"
+                if message_payload.call and message_payload.call.get("customer"):
                     caller_phone_number = message_payload.call.get("customer").get("number", "Unknown")
+                
+                print(f"📱 Caller: {caller_phone_number}")
+                print(f"👤 User input: '{user_input}'")
 
-            await process_call_transcript(final_transcript, caller_phone_number, vapi_call_id)
+                # Build chat history (exclude the last message as it's the current input)
+                langchain_history = []
+                for msg in conversation_history[:-1]:  # Exclude last message
+                    if msg.role == "user":
+                        langchain_history.append(HumanMessage(content=msg.content or ""))
+                    elif msg.role in ["assistant", "bot"]:
+                        langchain_history.append(AIMessage(content=msg.content or ""))
+                
+                print(f"📚 Built chat history with {len(langchain_history)} messages")
+                
+                # Prepare agent input
+                agent_input = f"A user from phone number {caller_phone_number} says: {user_input}"
+                print(f"🤖 Prepared agent input: '{agent_input}'")
+                
+                try:
+                    print("🚀 About to invoke agent executor...")
+                    print(f"🚀 Agent executor type: {type(agent_executor)}")
+                    print(f"🚀 Agent executor verbose: {agent_executor.verbose}")
+                    
+                    # Use async version consistently
+                    agent_response = await agent_executor.ainvoke({
+                        "input": agent_input,
+                        "chat_history": langchain_history
+                    })
+                    
+                    print(f"✅ Agent response received!")
+                    print(f"📤 Response type: {type(agent_response)}")
+                    print(f"📤 Response keys: {list(agent_response.keys()) if isinstance(agent_response, dict) else 'Not a dict'}")
+                    
+                    if isinstance(agent_response, dict):
+                        agent_text_output = agent_response.get("output", "I'm sorry, something went wrong.")
+                        print(f"💬 Extracted output: '{agent_text_output}'")
+                    else:
+                        agent_text_output = str(agent_response)
+                        print(f"💬 Converted to string: '{agent_text_output}'")
+                    
+                    print(f"📤 Returning to Vapi: '{agent_text_output}'")
+                    return {"message": agent_text_output}
+                    
+                except Exception as agent_error:
+                    print(f"❌ AGENT EXECUTION ERROR: {type(agent_error).__name__}")
+                    print(f"❌ Error message: {str(agent_error)}")
+                    import traceback
+                    print("❌ Full traceback:")
+                    traceback.print_exc()
+                    
+                    return {"message": "I apologize, but I encountered an issue processing your request. Please try again."}
+            else:
+                print(f"⏭️ Skipping non-user message (role: {last_message.role})")
+                return {}
+
+        # --- ROUTE 2: Handle the end-of-call summary ---
+        elif message_payload.type == "status-update" and message_payload.status == "ended":
+            print(f"📞 Call ended. Reason: {message_payload.endedReason}")
+            
+            if message_payload.artifact and message_payload.artifact.messagesOpenAIFormatted:
+                final_transcript = message_payload.artifact.messagesOpenAIFormatted
+                
+                caller_phone_number = "Unknown"
+                vapi_call_id = None
+                
+                if message_payload.call:
+                    vapi_call_id = message_payload.call.get("id")
+                    if message_payload.call.get("customer"):
+                        caller_phone_number = message_payload.call.get("customer").get("number", "Unknown")
+
+                print(f"📋 Processing end-of-call for {caller_phone_number}, call ID: {vapi_call_id}")
+                await process_call_transcript(final_transcript, caller_phone_number, vapi_call_id)
+            else:
+                print("❌ No final transcript artifact found in end-of-call payload")
+
+        # --- Default Route: Log and ignore other event types ---
         else:
-            print("--- No final transcript artifact found in end-of-call payload. ---")
+            event_type = message_payload.type if message_payload else "Unknown"
+            status = getattr(message_payload, 'status', 'N/A')
+            print(f"🔇 Ignoring event - Type: {event_type}, Status: {status}")
 
-    # --- Default Route: Ignore other event types ---
-    else:
-        event_type = message_payload.type if message_payload else "Unknown"
-        print(f"--- Ignoring Vapi event of type: {event_type} ---")
-
-    # Return an empty response if no action was taken
-    return {}
-
+        print("✅ Webhook processing complete")
+        return {}
+        
+    except Exception as e:
+        print(f"💥 WEBHOOK PROCESSING ERROR: {type(e).__name__}")
+        print(f"💥 Error message: {str(e)}")
+        import traceback
+        print("💥 Full traceback:")
+        traceback.print_exc()
+        return {"error": "Internal server error"}
 @app.post("/agent-query")
 async def perform_agent_query(query: Query):
     """

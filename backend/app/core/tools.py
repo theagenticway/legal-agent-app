@@ -50,7 +50,7 @@ LegalDocumentRetrieverTool = Tool(
     description="""Use this tool to answer questions about internal legal documents, 
     case files, contracts, and other documents stored within the firm's private knowledge base. 
     This is your primary tool for retrieving specific information from the firm's data like 'What is the termination policy in the Innovate Corp agreement?'.""",
-    coroutine=legal_document_retriever
+    # coroutine=legal_document_retriever
 )
 
 
