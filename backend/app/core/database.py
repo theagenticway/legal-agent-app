@@ -34,6 +34,7 @@ cases = Table(
     Column("full_transcript", Text),
     Column("follow_up_notes", JSONB), 
     Column("created_at", DateTime, default=func.now(), nullable=False),
+    Column("vapi_call_id", String(100), nullable=True),
 )
 
 # Databases library for async connections

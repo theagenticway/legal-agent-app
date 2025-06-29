@@ -18,7 +18,6 @@ def create_agent_executor():
         LegalDocumentRetrieverTool, 
         WebSearchTool, 
         CaseIntakeExtractorTool,
-        ContractAnalysisTool,
         DatabaseCaseReaderTool
     ]
     

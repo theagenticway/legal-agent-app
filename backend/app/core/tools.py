@@ -20,7 +20,7 @@ def legal_document_retriever(query: str) -> str:
     return rag_chain.invoke(query)
 
 LegalDocumentRetrieverTool = Tool(
-    name="Internal Legal Document Retriever",
+    name="Internal_Legal_Document_Retriever",
     func=legal_document_retriever,
     description="""Use this tool to answer questions about internal legal documents, 
     case files, contracts, and other documents stored within the firm's private knowledge base. 
@@ -31,7 +31,7 @@ LegalDocumentRetrieverTool = Tool(
 # --- Tool 2: Web Search ---
 # The class name has changed from TavilySearchResults to TavilySearch
 WebSearchTool = TavilySearch(
-    name="Live Web Search",
+    name="Live_Web_Search",
     description="""Use this tool to search the live internet for recent information,
     current events, breaking news, or information about new case law or regulations
     that may not be in the internal knowledge base. For example, use it to answer 'What were the results of the latest Supreme Court ruling on AI copyright?'."""
@@ -54,7 +54,7 @@ def case_intake_extractor(interview_summary: str) -> dict:
     return result.dict()
 
 CaseIntakeExtractorTool = Tool(
-    name="Case Intake Information Extractor",
+    name="Case_Intake_Information_Extractor",
     func=case_intake_extractor,
     args_schema=CaseIntakeInput,
     description="""Use this tool to process a new client interview summary or an unstructured block of text about a new case.
@@ -95,7 +95,7 @@ async def database_case_reader(phone_number: str) -> str:
         return "An error occurred while trying to access the database."
 
 DatabaseCaseReaderTool = Tool(
-    name="Database Case Reader",
+    name="Database_Case_Reader",
     func=database_case_reader, # Note: We pass the async function directly
     args_schema=DatabaseToolInput,
     description="""Use this tool to retrieve information about a caller's existing cases from the firm's database.
