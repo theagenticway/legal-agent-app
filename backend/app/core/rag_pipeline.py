@@ -36,7 +36,7 @@ def get_vector_store() -> Chroma:
         print(f"--- Creating new vector store from documents in {config.SOURCE_DATA_DIR} ---")
         loader = DirectoryLoader(config.SOURCE_DATA_DIR, glob="**/*.txt", loader_cls=TextLoader)
         docs = loader.load()
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200) # Increased
         splits = text_splitter.split_documents(docs)
         print(f"Loaded and split {len(splits)} document chunks.")
         vector_store = Chroma.from_documents(
@@ -52,11 +52,14 @@ def create_rag_chain():
     Creates and returns a RAG chain using factories for both LLM and embeddings.
     """
     vector_store = get_vector_store()
-    retriever = vector_store.as_retriever()
+    retriever = vector_store.as_retriever(search_kwargs={"k": 8})# Fetch 8 documents instead of default 4
 
     prompt = ChatPromptTemplate.from_template("""
-    You are an expert legal assistant. Answer the following question based only on the provided context.
-    If you don't know the answer, just say that you don't know. Be concise and precise.
+    You are an expert legal assistant. Answer the following question based on the provided context.
+Your goal is to provide a detailed, comprehensive, and helpful answer.
+Elaborate on all relevant points found in the context to fully address the user's query.
+If the context does not contain enough information to fully answer the question, clearly state that you cannot fully answer it from the provided documents and explain what information is missing.
+Do not make up information.
 
     Context:
     {context}

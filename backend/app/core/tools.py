@@ -81,6 +81,7 @@ LegalDocumentRetrieverTool = Tool(
 try:
     WebSearchTool = TavilySearch(
         name="Live_Web_Search",
+        k=5,  # Number of results to return
         description="""Use this tool to search the live internet for recent information,
         current events, breaking news, or information about new case law or regulations
         that may not be in the internal knowledge base. For example, use it to answer 'What were the results of the latest Supreme Court ruling on AI copyright?'."""

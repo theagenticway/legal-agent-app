@@ -8,7 +8,7 @@ from langchain_ollama import OllamaEmbeddings
 
 from . import config
 
-def get_llm(temperature: float = 0.5) -> BaseChatModel:
+def get_llm(temperature: float = 0.7) -> BaseChatModel:
     """
     Factory function to get the appropriate Chat LLM based on the config.
     """
