@@ -2,8 +2,8 @@
 
 from dotenv import load_dotenv
 load_dotenv()
-
-from fastapi import FastAPI
+import os
+from fastapi import FastAPI, Request, UploadFile, File, HTTPException
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 # Import List and Dict for type hinting
@@ -12,14 +12,18 @@ from langchain_core.messages import HumanMessage, AIMessage
 from .core.agent import create_agent_executor
 from .core.tools import case_intake_extractor
 import shutil
-from fastapi import UploadFile, File
+
 from .core.transcription import transcribe_audio_file
-from fastapi import Request
+
 from .core.post_call_processor import process_call_transcript
 # Import the database object and the table creation function
 from .core.database import database, cases, create_db_and_tables
 from sqlalchemy import select
-
+from .core.rag_pipeline import get_vector_store # Import get_vector_store
+from langchain_community.document_loaders import TextLoader, PyPDFLoader # For loading documents
+from langchain_text_splitters import RecursiveCharacterTextSplitter # For splitting
+# --- NEW IMPORT ---
+from .core.database import indexed_rag_documents # Import the new table object
 # --- Call this function once at the top level ---
 # This will create the 'cases' table if it doesn't exist
 create_db_and_tables()
@@ -411,7 +415,140 @@ async def get_all_cases():
         print(f"Error fetching cases: {e}")
         # Use FastAPI's error handling in a real app
         return {"error": "Could not fetch cases"}
+# --- NEW ENDPOINT: Process RAG Documents ---
+@app.post("/process-rag-documents")
+async def process_rag_documents(documents: List[UploadFile] = File(...)):
+    if not documents:
+        raise HTTPException(status_code=400, detail="No files uploaded.")
 
+    processed_count = 0
+    temp_files = []
+    processed_filenames = [] # To track successfully processed files
+    try:
+        all_splits = []
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
+
+        for doc_file in documents:
+            filename_original = doc_file.filename # Store original filename
+            temp_file_path = f"temp_rag_doc_{doc_file.filename}"
+            with open(temp_file_path, "wb") as buffer:
+                shutil.copyfileobj(doc_file.file, buffer)
+            temp_files.append(temp_file_path)
+
+            loader = None
+            file_extension = os.path.splitext(doc_file.filename)[1].lower()
+
+            if file_extension == '.txt':
+                loader = TextLoader(temp_file_path)
+            elif file_extension == '.pdf':
+                loader = PyPDFLoader(temp_file_path)
+            else:
+                print(f"Skipping unsupported file type: {doc_file.filename}")
+                continue
+
+            if loader:
+                try:
+                    docs = loader.load()
+                    splits = text_splitter.split_documents(docs)
+                    # --- CRITICAL CHANGE: Add 'original_filename' metadata to each split ---
+                    for split in splits:
+                        split.metadata["original_filename"] = filename_original
+                    # --- END CRITICAL CHANGE ---
+                    all_splits.extend(splits)
+                    processed_count += 1
+                    print(f"Processed file: {doc_file.filename} with {len(splits)} chunks.")
+                    processed_filenames.append({
+                        "filename": doc_file.filename,
+                        "num_chunks": len(splits)
+                    }) # Store info for DB insert
+                except Exception as e:
+                    print(f"Error loading {doc_file.filename}: {e}")
+                    continue
+
+        if not all_splits:
+            raise HTTPException(status_code=400, detail="No valid content found in uploaded files or all files were unsupported types.")
+
+        vector_store = get_vector_store()
+        vector_store.add_documents(all_splits)
+        # vector_store.persist() # Removed this earlier, keep it removed
+
+        # --- NEW: Insert metadata into PostgreSQL ---
+        for file_info in processed_filenames:
+            insert_query = indexed_rag_documents.insert().values(
+                filename=file_info["filename"],
+                num_chunks=file_info["num_chunks"],
+                # indexed_at defaults to now()
+            )
+            await database.execute(insert_query)
+        print(f"Successfully recorded metadata for {len(processed_filenames)} files in DB.")
+        # --- END NEW ---
+
+        message = f"Successfully processed {processed_count} file(s) and added {len(all_splits)} chunks to the RAG knowledge base."
+        print(message)
+        return {"message": message}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"ERROR: Exception during RAG document processing: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"An error occurred during document processing: {str(e)}")
+    finally:
+        for fpath in temp_files:
+            if os.path.exists(fpath):
+                os.remove(fpath)
+
+# --- NEW ENDPOINT: Get Indexed RAG Documents ---
+@app.get("/api/rag-documents")
+async def get_rag_documents():
+    """
+    Fetches a list of documents currently indexed in the RAG system (from DB metadata).
+    """
+    print("--- Fetching indexed RAG documents from the database ---")
+    try:
+        query = select(indexed_rag_documents.c.id, indexed_rag_documents.c.filename,
+                       indexed_rag_documents.c.num_chunks, indexed_rag_documents.c.indexed_at)
+        docs = await database.fetch_all(query)
+        return [dict(doc) for doc in docs]
+    except Exception as e:
+        print(f"Error fetching RAG documents: {e}")
+        raise HTTPException(status_code=500, detail="Could not fetch indexed RAG documents")
+    # --- NEW ENDPOINT: Delete RAG Document ---
+@app.delete("/api/rag-documents/{filename:path}") # Using path converter for filename with dots/slashes
+async def delete_rag_document(filename: str):
+    """
+    Deletes a document and its associated chunks from the RAG system (ChromaDB)
+    and removes its metadata from the database.
+    """
+    print(f"--- Attempting to delete document: {filename} ---")
+    
+    if not filename:
+        raise HTTPException(status_code=400, detail="Filename must be provided for deletion.")
+
+    try:
+        # 1. Delete from ChromaDB using metadata filter
+        vector_store = get_vector_store()
+        
+        # NOTE: Chroma's delete method accepts a 'where' clause for metadata.
+        # The key in 'where' must match the metadata key stored in Chroma.
+        # We stored it as 'original_filename'.
+        delete_from_chroma_result = vector_store.delete(where={"original_filename": filename})
+        print(f"DEBUG: ChromaDB deletion result for {filename}: {delete_from_chroma_result}")
+
+        # 2. Delete from PostgreSQL metadata table
+        delete_from_db_query = indexed_rag_documents.delete().where(indexed_rag_documents.c.filename == filename)
+        await database.execute(delete_from_db_query)
+        
+        print(f"Successfully deleted {filename} from ChromaDB and PostgreSQL metadata.")
+        return {"message": f"Document '{filename}' successfully removed from RAG system."}
+
+    except Exception as e:
+        print(f"ERROR: Exception during RAG document deletion for {filename}: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to delete document '{filename}': {str(e)}")
+# --- Static Files Mounting ---
 # --- Mount the static files LAST ---
 # This is a "catch-all" route, so it should be at the end.
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")

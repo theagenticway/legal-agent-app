@@ -18,14 +18,15 @@ body {
     color: var(--text-primary);
     margin: 0;
     font-size: 14px;
-    overflow: hidden;
+    /* REMOVED: overflow: hidden; */ /* This was preventing the entire page from scrolling */
 }
 
 /* --- Main Layout --- */
 .app-container {
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    min-height: 100vh; /* Changed from height to min-height to allow content to push past 100vh if needed */
+    /* REMOVED: overflow: hidden; (ensure it's not implicitly set or carried over) */
 }
 
 .app-header {
@@ -41,17 +42,29 @@ body {
 .main-content {
     flex-grow: 1;
     display: grid;
-    grid-template-columns: 1fr 2fr; /* 1/3 and 2/3 layout */
+    grid-template-columns: 1fr 2fr; /* Default 1/3 and 2/3 layout for pages like agent.html */
     gap: 32px;
     padding: 32px;
-    overflow: hidden;
+    overflow-y: auto; /* ADDED: Allows vertical scrolling within the main content area */
+    /* REMOVED: overflow: hidden; */ /* This was hiding scrollbars within the main content area */
 }
+
+/* NEW CLASS: For single-column layouts (like dashboard.html, case-intake.html) that need scrolling */
+.main-content.scrollable-single-column {
+    display: flex; /* Override grid to flex for single column layout */
+    flex-direction: column;
+    overflow-y: auto; /* Ensure scrolling */
+    padding: 32px; /* Keep padding */
+    gap: 32px; /* Maintain gap between sections */
+}
+
 
 .chat-container, .right-panel {
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    /* REMOVED: overflow: hidden; */ /* This was hiding scrollbars within these containers */
     gap: 24px;
+    /* These specific sections should not hide their own overflow, let their children handle it or let main-content scroll */
 }
 
 .section-title {
@@ -84,7 +97,7 @@ body {
     border-right: 1px solid var(--border-color);
     padding-right: 32px;
 }
-.chat-messages { flex-grow: 1; overflow-y: auto; padding-right: 10px; }
+.chat-messages { flex-grow: 1; overflow-y: auto; padding-right: 10px; } /* This already has overflow-y: auto, which is correct */
 .chat-message{display:flex;gap:10px;margin-bottom:20px;max-width:90%;}
 .chat-message .avatar{width:32px;height:32px;border-radius:50%;flex-shrink:0;}
 .chat-message .message-content{display:flex;flex-direction:column;}
@@ -101,13 +114,25 @@ body {
 #submit-button{background-color:var(--primary-accent);width:44px;height:44px;padding:0;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 
 /* --- Dashboard Styles --- */
-.table-wrapper { overflow-y: auto; }
-.table{width:100%;border-collapse:collapse;}
+.table-wrapper { overflow-y: auto; /* ADD A MAX-HEIGHT HERE FOR SCROLLING TO WORK */
+    max-height: 300px; /* Adjust as needed. This will make it scroll if content exceeds 300px */
+    /* Add a background and border to visually contain it */
+    background-color: var(--bg-medium);
+    border: 1px solid var(--border-color);
+    border-radius: 8px; 
+    margin-bottom: 24px; /* Space below tables */} /* This already has overflow-y: auto, which is correct */
+.table{width:100%;border-collapse:collapse; /* If the table's content width exceeds the wrapper, use overflow-x */
+    overflow-x: auto; /* In case columns make it too wide */}
 .table th,.table td{padding:12px 16px;text-align:left;border-bottom:1px solid var(--border-color);}
-.table th{font-weight:500;font-size:12px;color:var(--text-secondary);text-transform:uppercase;cursor:pointer;}
+.table th{font-weight:500;font-size:12px;color:var(--text-secondary);text-transform:uppercase;cursor:pointer;position: sticky; /* Make headers sticky */
+    top: 0; /* Stick to the top of the scrollable container */
+    background-color: var(--bg-medium); /* Match background so content doesn't show through */
+    z-index: 2; /* Keep headers above scrolling content */}
 .table td{font-size:14px;}
-.summarize-btn { background:none; border:1px solid var(--secondary-accent); color:var(--text-secondary); padding: 4px 10px; font-size: 12px; border-radius: 6px; }
-.summarize-btn:hover { background-color: var(--secondary-accent); color: var(--text-primary); }
+
+/* Merged summarize-btn into generic .button .secondary-button for consistency */
+/* .summarize-btn { background:none; border:1px solid var(--secondary-accent); color:var(--text-secondary); padding: 4px 10px; font-size: 12px; border-radius: 6px; }
+.summarize-btn:hover { background-color: var(--secondary-accent); color: var(--text-primary); } */
 
 /* --- File Upload Styles --- */
 .dropzone{border:2px dashed var(--border-color);border-radius:12px;padding:24px;text-align:center;cursor:pointer;transition:border-color .2s;position:relative;margin-bottom:16px;}
@@ -116,10 +141,329 @@ body {
 .dropzone i { color: var(--primary-accent); }
 .dropzone .small-text { font-size: 12px; }
 .dropzone-input { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
-#transcribe-button { width: 100%; background-color: var(--secondary-accent); }
-#transcribe-button:hover { background-color: var(--primary-accent); }
+/* Merged transcribe-button into generic .button .secondary-button for consistency */
+/* #transcribe-button { width: 100%; background-color: var(--secondary-accent); }
+#transcribe-button:hover { background-color: var(--primary-accent); } */
+
 
 /* --- Loading Spinner --- */
 #loading-indicator{display:flex;align-items:center;gap:10px;padding:20px 0;justify-content:center;color:var(--text-secondary);font-size:12px;}
 .spinner{width:18px;height:18px;border:2px solid var(--secondary-accent);border-left-color:var(--primary-accent);border-radius:50%;animation:spin 1s linear infinite;}
 @keyframes spin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}
+
+/* --- NEW SHARED COMPONENT STYLES (Buttons, Inputs) --- */
+
+.button {
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none; /* For anchor buttons */
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s; /* Added border-color transition */
+    border: none; /* Default to no border */
+}
+
+.primary-button {
+    background-color: var(--primary-accent);
+    color: var(--bg-dark); /* Ensure text color contrasts with primary accent */
+}
+
+.primary-button:hover {
+    background-color: #159a7f; /* Slightly darker primary */
+}
+
+.secondary-button {
+    background-color: var(--secondary-accent);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.secondary-button:hover {
+    background-color: var(--primary-accent);
+    color: var(--bg-dark); /* Ensure text color contrasts with primary accent */
+    border-color: var(--primary-accent);
+}
+
+.input-field {
+    background-color: var(--secondary-accent);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    padding: 12px;
+    font-family: inherit;
+    font-size: 14px;
+    width: 100%;
+}
+
+.input-field::placeholder {
+    color: var(--text-secondary);
+}
+
+.input-field:focus {
+    outline: none;
+    border-color: var(--primary-accent);
+}
+
+/* Specific styles for case details display, if they get long */
+#details-structured-intake,
+#details-full-transcript {
+    max-height: 200px; /* Limits the height */
+    overflow-y: auto; /* Ensures scrolling if content exceeds max-height */
+}
+/* Add to styles.css */
+
+.chat-input-area {
+    display: flex;
+    align-items: flex-end; /* Align items to the bottom, useful for multiline textarea */
+    gap: 10px;
+    margin-top: auto;
+    padding-top: 16px;
+    background-color: var(--secondary-accent); /* Match the textarea background */
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px; /* Padding inside the input area itself */
+}
+
+.chat-input-area #query-input {
+    flex-grow: 1;
+    background: none; /* Remove background, it's now on the parent */
+    border: none; /* Remove border, it's now on the parent */
+    padding: 4px; /* Adjust padding within the input area */
+    margin-left: 0; /* Remove margin-left if it was pushing it */
+    resize: none;
+}
+
+.icon-button {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    width: 36px; /* Adjust size for icon buttons */
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%; /* Make it round */
+    transition: background-color 0.2s, color 0.2s;
+    flex-shrink: 0; /* Prevent it from shrinking */
+}
+
+.icon-button:hover {
+    background-color: rgba(255, 255, 255, 0.1); /* Slight hover effect */
+    color: var(--text-primary);
+}
+
+.icon-button i {
+    font-size: 18px; /* Adjust icon size */
+}
+
+/* Ensure the submit button also looks correct within the new layout */
+.chat-input-area #submit-button {
+    width: 36px; /* Make it consistent with icon button size */
+    height: 36px;
+    border-radius: 50%; /* Make it round */
+}
+
+/* Style for selected files preview */
+#selected-files-preview {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+#selected-files-preview strong {
+    color: var(--text-primary);
+}
+
+#selected-files-preview #file-names {
+    flex-grow: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+/* Update these existing styles */
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    /* Removed overflow: hidden from here and body earlier */
+    position: relative; /* Needed for absolute/fixed positioning of children */
+}
+
+.app-header {
+    /* ... existing styles ... */
+    z-index: 100; /* Ensure header is on top */
+    position: relative; /* Ensure header is positioned */
+}
+
+.main-content {
+    flex-grow: 1;
+    display: grid;
+    grid-template-columns: 1fr; /* Force single column for agent.html as discussed */
+    gap: 32px;
+    padding: 32px;
+    /* padding-bottom will be handled by the floating wrapper, see .chat-messages below */
+    overflow-y: auto;
+    position: relative; /* Ensure it contains floating elements if any were inside */
+    z-index: 10; /* Keep it below header and above floating input */
+}
+
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    /* Removed border-right and padding-right in HTML inline style */
+    /* REMOVED: overflow: hidden; */
+    gap: 24px;
+    flex-grow: 1; /* Allow it to take available space */
+}
+
+.chat-messages {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding-right: 10px;
+    /* ADDED: Crucial padding-bottom to prevent content from being hidden behind floating input */
+    padding-bottom: 150px; /* Adjust this value based on the height of your floating input area */
+    /* This padding should be at least the height of .floating-input-wrapper + its top/bottom margin/padding */
+}
+
+/* NEW STYLES FOR THE FLOATING INPUT AREA */
+.floating-input-wrapper {
+    position: fixed; /* Makes it float relative to the viewport */
+    bottom: 0; /* Pins it to the bottom */
+    left: 0;
+    width: 100%; /* Spans full width */
+    background-color: var(--bg-dark); /* Match body background */
+    padding: 20px 32px; /* Add some padding around the input area */
+    border-top: 1px solid var(--border-color); /* Optional: Top border */
+    z-index: 50; /* Ensure it's above main content but below header */
+    display: flex; /* For vertical stacking of input and preview */
+    flex-direction: column;
+    align-items: center; /* Center horizontally if input area is narrower */
+}
+
+.chat-input-area {
+    width: 100%; /* Span full width of wrapper */
+    max-width: 900px; /* Optional: Constrain width like chat messages */
+    display: flex;
+    align-items: flex-end; /* Align items to the bottom, useful for multiline textarea */
+    gap: 10px;
+    padding: 8px; /* Padding inside the input area itself */
+    background-color: var(--secondary-accent);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+#selected-files-preview {
+    width: 100%; /* Span full width of wrapper */
+    max-width: 900px; /* Match chat-input-area max-width */
+    margin-top: 10px; /* Space between input and preview */
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--bg-medium);
+    color: var(--text-secondary);
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+/* Update existing .table-wrapper styles */
+.table-wrapper {
+    overflow-y: auto;
+    max-height: 300px; /* Adjust as needed for the dashboard table height */
+    background-color: var(--bg-medium);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    margin-bottom: 24px; /* Add some space below the table */
+}
+
+/* Ensure sticky headers for scrollable tables */
+.table th {
+    position: sticky;
+    top: 0;
+    background-color: var(--bg-medium);
+    z-index: 2;
+}
+
+/* Styles for accordion rows */
+.table .case-summary-row {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.table .case-summary-row:hover {
+    background-color: var(--secondary-accent); /* Lighter background on hover */
+}
+
+.table .case-summary-row.active {
+    background-color: var(--secondary-accent); /* Highlight active row */
+}
+
+.table .case-details-row {
+    background-color: var(--bg-medium); /* Background for the details row */
+    padding: 0; /* Remove default cell padding */
+}
+
+.table .case-details-row td {
+    padding: 0; /* No padding on the TD directly, we'll put it on the inner div */
+    border-bottom: none; /* No border for the details row's TD */
+}
+
+.table .case-details-content {
+    padding: 24px 16px; /* Padding for the actual content inside the details row */
+    border-top: 1px dashed var(--border-color); /* Separator from summary row */
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    font-size: 13px; /* Slightly smaller font for details */
+    color: var(--text-secondary);
+}
+
+.table .case-details-content h4 {
+    color: var(--text-primary);
+    font-size: 15px;
+    margin-bottom: 8px;
+}
+
+.table .case-details-content pre {
+    background-color: var(--secondary-accent);
+    padding: 10px;
+    border-radius: 8px;
+    overflow-x: auto;
+    max-height: 150px; /* Constrain pre-formatted text heights */
+    overflow-y: auto;
+    font-size: 12px;
+    color: var(--text-primary);
+}
+
+.table .case-details-content ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.table .case-details-content ul li {
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px dotted rgba(255, 255, 255, 0.1);
+}
+
+.table .case-details-content ul li:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.table .case-details-content strong {
+    color: var(--text-primary);
+}
+
+/* Ensure buttons within table cells are styled correctly */
+.table .button {
+    padding: 4px 10px; /* Smaller padding for table buttons */
+    font-size: 12px;
+}
+/* Rest of your existing styles for .icon-button, #submit-button, etc. should be fine. */
+/* Just ensure .chat-input-area #query-input has flex-grow: 1 and no margins. */

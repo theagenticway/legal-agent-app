@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Case Dashboard - The Agentic Way</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script src="//cdnjs.cloudflare.com/ajax/libs/list.js/2.3.1/list.min.js"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- TOP HEADER - Consistent across all pages -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="logo">
+                    <i data-feather="box"></i>
+                    <span>The Agentic Way</span>
+                </div>
+                <nav class="main-nav">
+                    <a href="dashboard.html" class="nav-link active">Dashboard</a>
+                    <a href="case-intake.html" class="nav-link">Intake</a>
+                    <a href="agent.html" class="nav-link">Agent Chat</a>
+                    <a href="#" class="nav-link">Research</a>
+                </nav>
+            </div>
+            <div class="header-right">
+                <div class="search-bar">
+                    <i data-feather="search"></i>
+                    <input type="text" id="global-search" class="search" placeholder="Search cases...">
+                </div>
+                <div class="user-profile">
+                    <img src="https://i.pravatar.cc/32?u=legal-ai" alt="User Avatar">
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN CONTENT GRID - Dashboard -->
+        <main class="main-content scrollable-single-column" style="grid-template-columns: 1fr;"> <!-- Adjust grid for single column -->
+            <section class="dashboard-container" id="cases-dashboard">
+                <h2 class="section-title">Case Dashboard</h2>
+                <h3 class="subsection-title">Data from DB</h3>
+                <div class="table-wrapper">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th class="sort" data-sort="case_id">Case ID</th>
+                                <th class="sort" data-sort="status">Status</th>
+                                <th class="sort" data-sort="caller_phone_number">Phone</th>
+                                <th class="sort" data-sort="created_at">Created At</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="list">
+                            <!-- Table rows injected by List.js -->
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Case Details Display (New Section) -->
+                <div id="case-details-display" style="display: none; margin-top: 32px; padding: 24px; background-color: var(--bg-medium); border-radius: 12px;">
+                    <h3 class="subsection-title">Case Details: <span id="details-case-id"></span></h3>
+                    <p><strong>Status:</strong> <span id="details-status"></span></p>
+                    <p><strong>Phone:</strong> <span id="details-phone"></span></p>
+                    <p><strong>Created:</strong> <span id="details-created"></span></p>
+                    <p><strong>Summary:</strong> <span id="details-summary"></span></p>
+                    <h4>Structured Intake Data:</h4>
+                    <pre id="details-structured-intake" style="background-color: var(--secondary-accent); padding: 10px; border-radius: 8px; overflow-x: auto;"></pre>
+                    <h4>Full Transcript:</h4>
+                    <pre id="details-full-transcript" style="background-color: var(--secondary-accent); padding: 10px; border-radius: 8px; overflow-y: auto; max-height: 200px;"></pre>
+                    <h4>Follow-up Notes:</h4>
+                    <ul id="details-follow-up-notes" style="list-style: none; padding: 0;">
+                        <!-- Notes will be loaded here -->
+                    </ul>
+                    <button class="button" style="margin-top: 16px;">Add More Details / Update Case</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="js/global.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+</html>

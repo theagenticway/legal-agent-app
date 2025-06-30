@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Chat & Document Upload - The Agentic Way</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://unpkg.com/feather-icons"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- TOP HEADER - Consistent across all pages -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="logo">
+                    <i data-feather="box"></i>
+                    <span>The Agentic Way</span>
+                </div>
+                <nav class="main-nav">
+                    <a href="dashboard.html" class="nav-link">Dashboard</a>
+                    <a href="case-intake.html" class="nav-link">Intake</a>
+                    <a href="agent.html" class="nav-link active">Agent Chat</a>
+                    <a href="#" class="nav-link">Research</a>
+                </nav>
+            </div>
+            <div class="header-right">
+                <div class="search-bar">
+                    <i data-feather="search"></i>
+                    <input type="text" id="global-search" class="search" placeholder="Search cases...">
+                </div>
+                <div class="user-profile">
+                    <img src="https://i.pravatar.cc/32?u=legal-ai" alt="User Avatar">
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN CONTENT GRID - Agent Chat -->
+        <main class="main-content" style="grid-template-columns: 1fr;">
+            <section class="rag-indexed-docs-container" style="margin-top: 40px;">
+                <h3 class="subsection-title">Currently Indexed Documents (RAG)</h3>
+                <div class="table-wrapper">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Filename</th>
+                                <th>Chunks</th>
+                                <th>Indexed At</th>
+                                <th>Actions</th> <!-- NEW COLUMN for delete button -->
+                            </tr>
+                        </thead>
+                        <tbody id="indexed-docs-list">
+                            <!-- Indexed documents will be loaded here by JS -->
+                            <tr><td colspan="3" style="text-align: center; color: var(--text-secondary);">Loading indexed documents...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            <section class="chat-container" style="border-right: none; padding-right: 0;">
+                <h2 class="section-title">Agent Chat</h2>
+                <!-- Chat messages will take all available space and scroll -->
+                <div class="chat-messages" id="response-container">
+                    <!-- Chat messages will be added here by JS -->
+                </div>
+            </section>
+            <!-- Moved this section here, outside the chat-container -->
+            
+        </main>
+
+        <!-- Floating Input Area (outside main-content for fixed positioning) -->
+        <div class="floating-input-wrapper">
+            <div id="loading-indicator" style="display: none;">
+                    <div class="spinner"></div><span>Agent is thinking...</span>
+                </div>
+            <div class="chat-input-area">
+                <input type="file" id="doc-upload-input" accept=".txt,.pdf" multiple style="display: none;">
+                <button type="button" id="attach-button" class="icon-button" title="Attach Document"><i data-feather="paperclip"></i></button>
+                <textarea id="query-input" placeholder="Ask the agent or attach documents..." required rows="3"></textarea>
+                <button type="submit" id="submit-button" title="Send"><i data-feather="send"></i></button>
+            </div>
+            <div id="selected-files-preview" style="display: none; margin-top: 10px; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--bg-medium); color: var(--text-secondary); font-size: 12px;">
+                <strong>Selected Files:</strong> <span id="file-names"></span>
+                <button type="button" id="clear-files-button" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; margin-left: 10px; font-size: 10px;"><i data-feather="x-circle"></i> Clear</button>
+            </div>
+            <div id="doc-upload-status" style="margin-top: 10px; font-size: 12px; color: var(--text-secondary);"></div>
+        </div>
+
+    </div>
+
+    <script src="js/global.js"></script>
+    <script src="js/agent.js"></script>
+</body>
+</html>
