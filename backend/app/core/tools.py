@@ -169,7 +169,7 @@ async def database_case_reader_async(phone_number: str) -> str:
     """
     print(f"--- Running Database Case Reader Tool for: {phone_number} ---")
     try:
-        query = select(cases.c.case_id, cases.c.status, cases.c.call_summary).where(cases.c.caller_phone_number == phone_number)
+        query = select(cases.c.case_id, cases.c.status, cases.c.call_summary, cases.c.full_transcript).where(cases.c.caller_phone_number == phone_number)
         results = await database.fetch_all(query)
         
         if not results:

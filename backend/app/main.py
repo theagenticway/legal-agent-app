@@ -24,6 +24,8 @@ from langchain_community.document_loaders import TextLoader, PyPDFLoader # For l
 from langchain_text_splitters import RecursiveCharacterTextSplitter # For splitting
 # --- NEW IMPORT ---
 from .core.database import indexed_rag_documents # Import the new table object
+from .core.tools import database_case_reader_async # NEW: Import the async tool
+
 # --- Call this function once at the top level ---
 # This will create the 'cases' table if it doesn't exist
 create_db_and_tables()
@@ -227,6 +229,28 @@ async def handle_vapi_interaction(request: VapiWebhookRequest):
 
                 # Build chat history (exclude the last message as it's the current input)
                 langchain_history = []
+                # --- NEW: Retrieve and Inject Caller-Specific Context ---
+            caller_context_message = ""
+            if caller_phone_number != "Unknown":
+                try:
+                    # Use the async database reader tool directly to get client data
+                    # This is efficient because it avoids an extra agent "tool-use" step
+                    # if the data is critical for every turn.
+                    client_data = await database_case_reader_async(caller_phone_number)
+                    if client_data:
+                        caller_context_message = f"Here is relevant information about the current caller ({caller_phone_number}) from your internal database:\n{client_data}"
+                        print(f"🔍 Injected caller context:\n{caller_context_message[:200]}...")
+                    else:
+                        caller_context_message = f"No existing case information found for caller {caller_phone_number}."
+                        print(f"🔍 No context found for caller {caller_phone_number}.")
+                except Exception as e:
+                    print(f"⚠️ Error retrieving caller context: {e}")
+                    caller_context_message = "An error occurred while retrieving caller information from the database."
+            
+            # Add the caller context as a SystemMessage at the very beginning
+            if caller_context_message:
+                langchain_history.append(SystemMessage(content=caller_context_message))
+            # --- END NEW ---
                 for msg in conversation_history[:-1]:  # Exclude last message
                     if msg.role == "user":
                         langchain_history.append(HumanMessage(content=msg.content or ""))
