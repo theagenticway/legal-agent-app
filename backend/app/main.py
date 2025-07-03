@@ -6,28 +6,52 @@ import os
 from fastapi import FastAPI, Request, UploadFile, File, HTTPException
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-# Import List and Dict for type hinting
-from typing import List, Optional, Dict, Any 
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from typing import List, Optional, Dict, Any
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage # Added SystemMessage
 from .core.agent import create_agent_executor
 from .core.tools import case_intake_extractor
 import shutil
-
+import uuid
 from .core.transcription import transcribe_audio_file
-
 from .core.post_call_processor import process_call_transcript
-# Import the database object and the table creation function
-from .core.database import database, cases, create_db_and_tables
-from sqlalchemy import select
-from .core.rag_pipeline import get_vector_store # Import get_vector_store
-from langchain_community.document_loaders import TextLoader, PyPDFLoader # For loading documents
-from langchain_text_splitters import RecursiveCharacterTextSplitter # For splitting
-# --- NEW IMPORT ---
-from .core.database import indexed_rag_documents # Import the new table object
-from .core.tools import database_case_reader_async # NEW: Import the async tool
+
+# Import ALL database objects needed from your updated database.py
+from .core.database import (
+    database,
+    cases,
+    indexed_rag_documents,
+    clients,        # NEW
+    contracts,      # NEW
+    activities,     # NEW
+    tasks,          # NEW
+    notifications,  # NEW
+    create_db_and_tables
+)
+from sqlalchemy import select, func # Added func for counts, and updated select
+from .core.rag_pipeline import get_vector_store
+from langchain_community.document_loaders import TextLoader, PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+# Import ALL schemas needed from your updated schemas.py
+from .core.schemas import (
+    VapiMessageOpenAI,
+    VapiArtifact,
+    VapiPayload,
+    VapiWebhookRequest,
+    CaseIntake,
+    OverviewCounts,     # NEW
+    RecentActivity,     # NEW
+    UpcomingDeadline,   # NEW
+    Notification,       # NEW
+    DashboardData       # NEW (though not used directly as a response model for one endpoint yet)
+)
+
+from datetime import datetime, timezone, timedelta # Added timedelta
+from .core.tools import database_case_reader_async # Import the async tool
+
 
 # --- Call this function once at the top level ---
-# This will create the 'cases' table if it doesn't exist
+# This will create all defined tables if they don't exist
 create_db_and_tables()
 
 app = FastAPI(
@@ -39,56 +63,22 @@ app = FastAPI(
 # --- Define API routes FIRST ---
 agent_executor = create_agent_executor()
 
-# --- NEW, UNIFIED VAPI DATA MODELS ---
-
-# Represents a single message in the conversation history, using the OpenAI format.
-class VapiMessageOpenAI(BaseModel):
-    role: str
-    content: Optional[str] = None
-
-# Represents the 'artifact' object, which contains the full transcript.
-class VapiArtifact(BaseModel):
-    messagesOpenAIFormatted: List[VapiMessageOpenAI]
-
-# This is the main, flexible payload model that can handle different event types.
-class VapiPayload(BaseModel):
-    type: str
-    status: Optional[str] = None
-    endedReason: Optional[str] = None
-    # The 'artifact' is only present in 'status-update' messages.
-    artifact: Optional[VapiArtifact] = None 
-    # The 'conversation' key is only present in 'conversation-update' messages.
-    conversation: Optional[List[VapiMessageOpenAI]] = None
-    # We can add other fields we see, but keep them optional.
-    call: Optional[Dict[str, Any]] = None
-
-# This is the top-level request object, which remains the same.
-class VapiWebhookRequest(BaseModel):
-    message: VapiPayload
-
-# This is the Pydantic model for the /agent-query endpoint (from our web UI)
-# Let's keep it here for clarity.
+# --- Pydantic models for specific endpoints (Query, IntakeRequest) ---
 class Query(BaseModel):
     text: str
     history: List[Dict[str, Any]]
 
-# In backend/app/main.py
-# backend/app/main.py
+class IntakeRequest(BaseModel):
+    text: str
 
-# Add Request to your FastAPI imports
-from fastapi import Request
-from datetime import datetime, timezone
-
-# ... other imports ...
-
-# --- KEEP YOUR CORRECTED Pydantic models here, just comment them out for now ---
-# In backend/app/main.py
 # --- Add database connection event handlers ---
 @app.on_event("startup")
 async def startup():
     try:
         await database.connect()
         print("✅ Database connected successfully")
+        # --- Add initial sample data if DB is empty for dashboard testing ---
+        await insert_sample_dashboard_data()
     except Exception as e:
         print(f"❌ Database connection failed: {e}")
         raise
@@ -97,8 +87,97 @@ async def startup():
 async def shutdown():
     await database.disconnect()
 
-# Add these endpoints to your main.py for basic health checks
+# --- NEW: Function to insert sample data for dashboard ---
+async def insert_sample_dashboard_data():
+    # Check if data exists before inserting to avoid duplicates on reload
+    # Using 'clients' table as a proxy for checking if sample data has been inserted
+    if await database.fetch_val(select(func.count()).select_from(clients)) == 0:
+        print("--- Inserting sample client data ---")
+        # --- FIX: Generate client_id explicitly ---
+        acme_client_id = uuid.uuid4().hex[:8].upper()
+        tech_innovators_client_id = uuid.uuid4().hex[:8].upper()
+        property_group_client_id = uuid.uuid4().hex[:8].upper()
+        global_services_client_id = uuid.uuid4().hex[:8].upper()
+        strategic_ventures_client_id = uuid.uuid4().hex[:8].upper()
 
+        await database.execute(clients.insert().values(
+            client_id=acme_client_id, # <--- ADDED
+            name="Acme Corp", contact_email="contact@acmecorp.com", phone_number="+15551234567", status="Active", last_activity_at=datetime.utcnow()
+        ))
+        await database.execute(clients.insert().values(
+            client_id=tech_innovators_client_id, # <--- ADDED
+            name="Tech Innovators Inc.", contact_email="info@techinnovators.com", phone_number="+15559876543", status="Active", last_activity_at=datetime.utcnow() - timedelta(days=7)
+        ))
+        await database.execute(clients.insert().values(
+            client_id=property_group_client_id, # <--- ADDED
+            name="Property Group LLC", contact_email="contact@propertygroup.com", phone_number="+15551112222", status="Active", last_activity_at=datetime.utcnow() - timedelta(days=14)
+        ))
+        await database.execute(clients.insert().values(
+            client_id=global_services_client_id, # <--- ADDED
+            name="Global Services Ltd.", contact_email="info@globalservices.com", phone_number="+15553334444", status="Inactive", last_activity_at=datetime.utcnow() - timedelta(days=21)
+        ))
+        await database.execute(clients.insert().values(
+            client_id=strategic_ventures_client_id, # <--- ADDED
+            name="Strategic Ventures Co.", contact_email="contact@strategicventures.com", phone_number="+15555556666", status="Active", last_activity_at=datetime.utcnow() - timedelta(days=28)
+        ))
+
+        # Fetch client IDs for foreign keys (after inserting clients)
+        # Use the generated IDs for lookup to be safe
+        acme_client = await database.fetch_one(select(clients.c.id).where(clients.c.client_id == acme_client_id))
+        tech_client = await database.fetch_one(select(clients.c.id).where(clients.c.client_id == tech_innovators_client_id))
+
+        print("--- Inserting sample contract data ---")
+        
+        await database.execute(contracts.insert().values(
+            contract_id=uuid.uuid4().hex[:8].upper(), # <--- ADDED for contracts as well
+            name="Acme Corp Agreement", status="Active", signed_date=datetime.utcnow() - timedelta(days=30), client_id=acme_client.id if acme_client else None
+        ))
+        await database.execute(contracts.insert().values(
+            contract_id=uuid.uuid4().hex[:8].upper(), # <--- ADDED for contracts as well
+            name="Tech Innovators Partnership", status="Active", signed_date=datetime.utcnow() - timedelta(days=60), client_id=tech_client.id if tech_client else None
+        ))
+        await database.execute(contracts.insert().values(
+            contract_id=uuid.uuid4().hex[:8].upper(), # <--- ADDED for contracts as well
+            name="Expired Contract A", status="Expired", signed_date=datetime.utcnow() - timedelta(days=365), expiration_date=datetime.utcnow() - timedelta(days=5)
+        ))
+        await database.execute(contracts.insert().values(
+            contract_id=uuid.uuid4().hex[:8].upper(), # <--- ADDED for contracts as well
+            name="Pending Review B", status="Review", signed_date=datetime.utcnow() - timedelta(days=10)
+        ))
+
+        print("--- Inserting sample activity data ---")
+        await database.execute_many(activities.insert(), [
+            {"description": "Reviewed contract for Acme Corp", "activity_type": "Contract Review", "performed_at": datetime.utcnow() - timedelta(hours=2)},
+            {"description": "Researched case law for Smith v. Jones", "activity_type": "Legal Research", "performed_at": datetime.utcnow() - timedelta(hours=5)},
+            {"description": "Updated case status for Johnson v. Williams", "activity_type": "Case Management", "performed_at": datetime.utcnow() - timedelta(hours=10)},
+            {"description": "Initiated client onboarding for new client A", "activity_type": "Client Onboarding", "performed_at": datetime.utcnow() - timedelta(days=1)},
+        ])
+
+        print("--- Inserting sample task/deadline data ---")
+        # Get a sample case_id to link tasks
+        sample_case_record = await database.fetch_one(select(cases.c.id).limit(1)) # Fetch one existing case
+        sample_case_id = sample_case_record.id if sample_case_record else None
+        
+        await database.execute_many(tasks.insert(), [
+            {"task_id": uuid.uuid4().hex[:8].upper(),"title": "Review contract for Acme Corp", "task_type": "Review", "due_date": datetime.utcnow() + timedelta(days=2), "status": "Pending", "assigned_to": "Alex"},
+            {"task_id": uuid.uuid4().hex[:8].upper(),"title": "Prepare for deposition in Smith v. Jones", "task_type": "Litigation", "due_date": datetime.utcnow() + timedelta(days=5), "status": "In Progress", "assigned_to": "Sarah Johnson", "related_case_id": sample_case_id},
+            {"task_id": uuid.uuid4().hex[:8].upper(),"title": "Review compliance report for Johnson v. Williams", "task_type": "Compliance", "due_date": datetime.utcnow() + timedelta(days=7), "status": "Pending"},
+            {"task_id": uuid.uuid4().hex[:8].upper(),"title": "Draft initial client intake form", "task_type": "Intake", "due_date": datetime.utcnow() + timedelta(days=1), "status": "Pending", "assigned_to": "Alex"},
+            {"task_id": uuid.uuid4().hex[:8].upper(),"title": "Follow up on client XYZ", "task_type": "Communication", "due_date": datetime.utcnow() + timedelta(days=10), "status": "Pending"},
+        ])
+
+        print("--- Inserting sample notification data ---")
+        await database.execute_many(notifications.insert(), [
+            {"message": "Contract for Acme Corp requires your review", "notification_type": "Contract Review", "is_read": False, "created_at": datetime.utcnow() - timedelta(minutes=30), "related_url": "/documents"},
+            {"message": "New case law found for Smith v. Jones", "notification_type": "Legal Research", "is_read": False, "created_at": datetime.utcnow() - timedelta(hours=1), "related_url": "/research"},
+            {"message": "Case status updated for Johnson v. Williams", "notification_type": "Case Status", "is_read": False, "created_at": datetime.utcnow() - timedelta(hours=2), "related_url": "/cases"},
+            {"message": "Welcome to LegalAI!", "notification_type": "Welcome", "is_read": True, "created_at": datetime.utcnow() - timedelta(days=1)},
+        ])
+        print("--- Sample dashboard data inserted successfully ---")
+    else:
+        print("--- Sample data already exists, skipping insertion ---")
+
+# --- Debug Endpoints ---
 @app.get("/debug/health")
 async def health_check():
     """Basic health check"""
@@ -150,10 +229,15 @@ async def test_tools():
     """Test individual tools"""
     results = {}
     
-    # Test Legal Document Retriever
+    # Test Legal Document Retriever (requires actual RAG setup)
     try:
-        from backend.app.core.tools import legal_document_retriever
-        result = legal_document_retriever("test query")
+        from backend.app.core.tools import LegalDocumentRetrieverTool # Use the tool directly
+        # Note: This might still behave synchronously or require a more complex mock
+        # For a true test of the async tool, you might need an async wrapper here
+        # For now, just calling the synchronous func for testability in a sync endpoint
+        test_query = "What is the policy on employee leave?"
+        # The tool expects a string input and returns a string
+        result = LegalDocumentRetrieverTool.func(test_query) 
         results["legal_doc_retriever"] = {"status": "success", "result_length": len(str(result))}
     except Exception as e:
         results["legal_doc_retriever"] = {"status": "error", "error": str(e)}
@@ -165,14 +249,19 @@ async def test_tools():
         results["case_intake_extractor"] = {"status": "success", "result": result}
     except Exception as e:
         results["case_intake_extractor"] = {"status": "error", "error": str(e)}
+
+    # Test Database Case Reader (Async version)
+    try:
+        from backend.app.core.tools import AsyncDatabaseCaseReaderTool
+        test_phone_number = "+17205690621" # Use a phone number that might exist in sample data
+        result = await AsyncDatabaseCaseReaderTool.coroutine(test_phone_number)
+        results["database_case_reader"] = {"status": "success", "result": result}
+    except Exception as e:
+        results["database_case_reader"] = {"status": "error", "error": str(e)}
     
     return results
-# ... rest of your endpoints ...
-# @app.post("/api/vapi/agent-interaction")
 
-
-# @app.post("/api/vapi/agent-interaction")
-
+# --- Vapi Webhook Endpoint (Existing) ---
 @app.post("/api/vapi/agent-interaction")
 async def handle_vapi_interaction(request: VapiWebhookRequest):
     """
@@ -222,7 +311,7 @@ async def handle_vapi_interaction(request: VapiWebhookRequest):
                     return {"message": "I didn't receive any message content"}
                 
                 # Get caller info
-                caller_phone_number = "Unknown"
+                caller_phone_number = "Unknown" # Ensure initialized
                 if message_payload.call and message_payload.call.get("customer"):
                     caller_phone_number = message_payload.call.get("customer").get("number", "Unknown")
                 
@@ -231,8 +320,9 @@ async def handle_vapi_interaction(request: VapiWebhookRequest):
 
                 # Build chat history (exclude the last message as it's the current input)
                 langchain_history = []
-                # --- NEW: Retrieve and Inject Caller-Specific Context ---
-                #caller_context_message = "" # Removed this line as it will be assigned below
+                
+                # --- Retrieve and Inject Caller-Specific Context ---
+                caller_context_message = "" # Initialize here for safety
                 if caller_phone_number != "Unknown":
                     try:
                         client_data = await database_case_reader_async(caller_phone_number)
@@ -246,15 +336,14 @@ async def handle_vapi_interaction(request: VapiWebhookRequest):
                         print(f"⚠️ Error retrieving caller context for {caller_phone_number}: {e}") # Added phone number to error log
                         caller_context_message = "An error occurred while retrieving caller information from the database."
                 else:
-                    # If phone number is unknown, no specific caller context can be retrieved.
-                    # Provide a default empty message or a generic one.
                     caller_context_message = "" # Default to empty if phone number is unknown
                     print("🔍 Caller phone number unknown, skipping specific context retrieval.")
 
                 # Add the caller context as a SystemMessage at the very beginning
                 if caller_context_message: # Only add if there's actual content
                     langchain_history.append(SystemMessage(content=caller_context_message))
-            # --- END NEW ---
+                # --- END NEW ---
+
                 for msg in conversation_history[:-1]:  # Exclude last message
                     if msg.role == "user":
                         langchain_history.append(HumanMessage(content=msg.content or ""))
@@ -264,7 +353,7 @@ async def handle_vapi_interaction(request: VapiWebhookRequest):
                 print(f"📚 Built chat history with {len(langchain_history)} messages")
                 
                 # Prepare agent input
-                agent_input = f"A user from phone number {caller_phone_number} says: {user_input}"
+                agent_input = user_input # Simpler, as phone number is in system message now.
                 print(f"🤖 Prepared agent input: '{agent_input}'")
                 
                 try:
@@ -345,6 +434,8 @@ async def handle_vapi_interaction(request: VapiWebhookRequest):
         traceback.print_exc()
         print("DEBUG: Returning from global webhook processing error") #PointH
         return {"error": "Internal server error"}
+
+# --- Agent Query (Frontend Web UI) ---
 @app.post("/agent-query")
 async def perform_agent_query(query: Query):
     """
@@ -352,6 +443,8 @@ async def perform_agent_query(query: Query):
     """
     print(f"Received query for agent: {query.text}")
     chat_history = []
+    # No SystemMessage injection for web UI, as the context is generally less critical
+    # (or could be pulled by the agent via tools if asked directly)
     for message in query.history:
         if message.get("role") == "human":
             chat_history.append(HumanMessage(content=message.get("content")))
@@ -369,10 +462,8 @@ async def perform_agent_query(query: Query):
     # --- END DEBUG PRINT ---
 
     return {"answer": response["output"]}
-# --- Add this new endpoint ---
-class IntakeRequest(BaseModel):
-    text: str
 
+# --- Case Intake Endpoint ---
 @app.post("/case-intake")
 async def process_case_intake(request: IntakeRequest):
     """
@@ -389,7 +480,8 @@ async def process_case_intake(request: IntakeRequest):
     print(f"--- Extracted Data --- \n{extracted_data}")
     
     return extracted_data
-# --- Add this new endpoint ---
+
+# --- Audio Transcription Endpoint ---
 @app.post("/transcribe-audio")
 async def handle_audio_transcription(audio_file: UploadFile = File(...)):
     """
@@ -407,9 +499,8 @@ async def handle_audio_transcription(audio_file: UploadFile = File(...)):
         # Call our transcription service
         transcribed_text = transcribe_audio_file(temp_file_path)
         print(f"DEBUG (main.py): Transcribed text received: '{transcribed_text[:100]}...' (Type: {type(transcribed_text)})")
-        return {"text": transcribed_text}
         
-    # Ensure that transcribed_text is indeed a string. If it's empty, send an appropriate message.
+        # Ensure that transcribed_text is indeed a string. If it's empty, send an appropriate message.
         if not isinstance(transcribed_text, str):
             print(f"ERROR (main.py): transcribe_audio_file returned non-string: {transcribed_text}")
             return {"error": "Transcription failed: Invalid output format from transcriber."}
@@ -432,7 +523,7 @@ async def handle_audio_transcription(audio_file: UploadFile = File(...)):
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
 
-# --- ADD THIS NEW ENDPOINT ---
+# --- Existing Cases Endpoint ---
 @app.get("/api/cases")
 async def get_all_cases():
     """
@@ -447,8 +538,9 @@ async def get_all_cases():
     except Exception as e:
         print(f"Error fetching cases: {e}")
         # Use FastAPI's error handling in a real app
-        return {"error": "Could not fetch cases"}
-# --- NEW ENDPOINT: Process RAG Documents ---
+        raise HTTPException(status_code=500, detail="Could not fetch cases") # Changed to HTTPException for consistent error handling
+
+# --- RAG Document Endpoints (Existing) ---
 @app.post("/process-rag-documents")
 async def process_rag_documents(documents: List[UploadFile] = File(...)):
     if not documents:
@@ -532,7 +624,6 @@ async def process_rag_documents(documents: List[UploadFile] = File(...)):
             if os.path.exists(fpath):
                 os.remove(fpath)
 
-# --- NEW ENDPOINT: Get Indexed RAG Documents ---
 @app.get("/api/rag-documents")
 async def get_rag_documents():
     """
@@ -547,7 +638,7 @@ async def get_rag_documents():
     except Exception as e:
         print(f"Error fetching RAG documents: {e}")
         raise HTTPException(status_code=500, detail="Could not fetch indexed RAG documents")
-    # --- NEW ENDPOINT: Delete RAG Document ---
+
 @app.delete("/api/rag-documents/{filename:path}") # Using path converter for filename with dots/slashes
 async def delete_rag_document(filename: str):
     """
@@ -580,8 +671,66 @@ async def delete_rag_document(filename: str):
         print(f"ERROR: Exception during RAG document deletion for {filename}: {e}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Failed to delete document '{filename}': {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An error occurred during document processing: {str(e)}")
+
+# --- NEW DASHBOARD API ENDPOINTS ---
+
+@app.get("/api/dashboard/overview", response_model=OverviewCounts)
+async def get_dashboard_overview():
+    """
+    Fetches overview counts for the dashboard.
+    """
+    # Assuming 'Active Contracts' means contracts with status 'Active'
+    active_contracts_count_query = select(func.count()).select_from(contracts).where(contracts.c.status == "Active")
+    
+    # Assuming 'Upcoming Deadlines' are tasks due in the future and not completed
+    upcoming_deadlines_count_query = select(func.count()).select_from(tasks).where(
+        (tasks.c.due_date >= datetime.utcnow()) & (tasks.c.status.in_(["Pending", "In Progress"]))
+    )
+    
+    # Assuming 'New Notifications' are unread notifications
+    new_notifications_count_query = select(func.count()).select_from(notifications).where(notifications.c.is_read == False)
+
+    active_contracts = await database.fetch_val(active_contracts_count_query) or 0
+    upcoming_deadlines = await database.fetch_val(upcoming_deadlines_count_query) or 0
+    new_notifications = await database.fetch_val(new_notifications_count_query) or 0
+
+    return OverviewCounts(
+        active_contracts=active_contracts,
+        upcoming_deadlines=upcoming_deadlines,
+        new_notifications=new_notifications
+    )
+
+@app.get("/api/dashboard/recent-activity", response_model=List[RecentActivity])
+async def get_recent_activity():
+    """
+    Fetches a list of recent activities for the dashboard.
+    """
+    query = select(activities).order_by(activities.c.performed_at.desc()).limit(5) # Top 5 recent activities
+    activity_records = await database.fetch_all(query)
+    return [RecentActivity(**dict(record)) for record in activity_records]
+
+@app.get("/api/dashboard/upcoming-deadlines", response_model=List[UpcomingDeadline])
+async def get_upcoming_deadlines():
+    """
+    Fetches a list of upcoming deadlines for the dashboard.
+    """
+    query = select(tasks).where(
+        (tasks.c.due_date >= datetime.utcnow()) & (tasks.c.status.in_(["Pending", "In Progress"]))
+    ).order_by(tasks.c.due_date.asc()).limit(5) # Top 5 upcoming
+    deadline_records = await database.fetch_all(query)
+    return [UpcomingDeadline(**dict(record)) for record in deadline_records]
+
+@app.get("/api/dashboard/notifications", response_model=List[Notification])
+async def get_notifications():
+    """
+    Fetches a list of unread notifications for the dashboard.
+    """
+    query = select(notifications).where(notifications.c.is_read == False).order_by(notifications.c.created_at.desc()).limit(5) # Top 5 unread
+    notification_records = await database.fetch_all(query)
+    return [Notification(**dict(record)) for record in notification_records]
+
+
 # --- Static Files Mounting ---
-# --- Mount the static files LAST ---
 # This is a "catch-all" route, so it should be at the end.
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")

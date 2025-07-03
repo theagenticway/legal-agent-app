@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cases - LegalAI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://unpkg.com/feather-icons"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/list.js/2.3.1/list.min.js"></script> <!-- List.js for table sorting/search -->
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <i data-feather="box"></i>
+                <span>LegalAI</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="nav-item">
+                    <i data-feather="home"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="clients.html" class="nav-item">
+                    <i data-feather="users"></i>
+                    <span>Clients</span>
+                </a>
+                <a href="cases.html" class="nav-item">
+                    <i data-feather="briefcase"></i>
+                    <span>Cases</span>
+                </a>
+                <a href="documents.html" class="nav-item">
+                    <i data-feather="file-text"></i>
+                    <span>Documents</span>
+                    
+                </a>
+                <a href="research.html" class="nav-item">
+                    <i data-feather="search"></i>
+                    <span>Research</span>
+                </a>
+                <a href="tasks.html" class="nav-item">
+                    <i data-feather="check-square"></i>
+                    <span>Tasks</span>
+                </a>
+                <a href="agent.html" class="nav-item">
+                    <i data-feather="message-square"></i>
+                    <span>Agent Chat</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <div class="main-area">
+            <!-- Top Header -->
+            <header class="app-header">
+                <div class="header-left">
+                    <h1 class="section-title" style="margin-bottom: 0;">Cases</h1>
+                </div>
+                <div class="header-right">
+                    <div class="search-bar">
+                        <i data-feather="search"></i>
+                        <input type="text" id="global-search" placeholder="Search...">
+                    </div>
+                    <div class="notification-icon">
+                        <i data-feather="bell"></i>
+                        <span class="badge">3</span>
+                    </div>
+                    <div class="user-profile">
+                        <img src="https://i.pravatar.cc/32?u=legal-ai-user" alt="User Avatar">
+                        <span>Alex</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Page Specific Content -->
+            <main class="main-content">
+                <section class="card p-6" id="cases-dashboard">
+                    <div class="flex items-center justify-between mb-4">
+                        <input type="text" class="input-field search-bar" id="search-cases" placeholder="Search cases..." style="max-width: 300px;">
+                        <button class="button primary-button">
+                            <i data-feather="plus"></i> New Case
+                        </button>
+                    </div>
+
+                    <div class="flex gap-4 mb-4">
+                        <button class="button secondary-button active-tab" data-filter="all">All Cases</button>
+                        <button class="button secondary-button" data-filter="my">My Cases</button>
+                        <button class="button secondary-button" data-filter="unassigned">Unassigned</button>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th class="sort" data-sort="case_name">Case Name</th>
+                                    <th class="sort" data-sort="client">Client</th>
+                                    <th class="sort" data-sort="type">Type</th>
+                                    <th class="sort" data-sort="status">Status</th>
+                                    <th class="sort" data-sort="assigned_to">Assigned To</th>
+                                    <th class="sort" data-sort="last_updated">Last Updated</th>
+                                </tr>
+                            </thead>
+                            <tbody class="list" id="cases-list-body">
+                                <!-- Table rows injected by JS -->
+                                <tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">Loading cases...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Case Details Display (Existing, but styled) -->
+                    <div id="case-details-display" class="card p-6 mt-8" style="display: none;">
+                        <h3 class="subsection-title mb-4">Case Details: <span id="details-case-id" class="text-accent"></span></h3>
+                        <div class="grid grid-cols-2 gap-4 text-sm mb-4">
+                            <p><strong>Status:</strong> <span id="details-status" class="status-badge"></span></p>
+                            <p><strong>Phone:</strong> <span id="details-phone" class="text-primary"></span></p>
+                            <p><strong>Created:</strong> <span id="details-created" class="text-primary"></span></p>
+                        </div>
+                        <p class="mb-4"><strong>Summary:</strong> <span id="details-summary" class="text-primary"></span></p>
+
+                        <h4 class="subsection-title text-md mt-6">Structured Intake Data:</h4>
+                        <pre id="details-structured-intake" class="card p-4 text-sm" style="overflow-x: auto; max-height: 200px;"></pre>
+
+                        <h4 class="subsection-title text-md mt-6">Full Transcript:</h4>
+                        <pre id="details-full-transcript" class="card p-4 text-sm" style="overflow-y: auto; max-height: 200px;"></pre>
+
+                        <h4 class="subsection-title text-md mt-6">Follow-up Notes:</h4>
+                        <ul id="details-follow-up-notes" class="card p-4 text-sm" style="list-style: none; padding: 0;">
+                            <!-- Notes will be loaded here -->
+                            <li class="text-secondary">No follow-up notes.</li>
+                        </ul>
+                        <button class="button secondary-button mt-4">
+                            <i data-feather="edit"></i> Add More Details / Update Case
+                        </button>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script src="js/global.js"></script>
+    <script src="js/dashboard.js"></script> <!-- This will be renamed to cases.js later -->
+    <script>
+        // Temporary script to make sure List.js works and shows mock data
+        document.addEventListener('DOMContentLoaded', async () => {
+            feather.replace();
+
+            // Your existing fetch logic for cases
+            async function fetchCases() {
+                try {
+                    const response = await fetch('/api/cases');
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const casesData = await response.json();
+                    return casesData.map(c => ({
+                        id: c.id,
+                        case_id: c.case_id,
+                        caller_phone_number: c.caller_phone_number,
+                        status: c.status,
+                        structured_intake: JSON.parse(c.structured_intake), // Parse JSON string
+                        call_summary: c.call_summary,
+                        full_transcript: c.full_transcript,
+                        follow_up_notes: JSON.parse(c.follow_up_notes || '[]'), // Parse JSON string, default to empty array
+                        created_at: new Date(c.created_at).toLocaleString(),
+                        // Add mock data for new columns to fill the table
+                        case_name: c.structured_intake ? JSON.parse(c.structured_intake).summary_of_facts.substring(0, 30) + '...' : c.case_id,
+                        client: c.structured_intake ? JSON.parse(c.structured_intake).client_name : 'N/A',
+                        type: c.structured_intake ? JSON.parse(c.structured_intake).case_type : 'N/A',
+                        assigned_to: 'Unassigned', // Placeholder
+                        last_updated: new Date(c.created_at).toISOString().split('T')[0] // Just date
+                    }));
+                } catch (error) {
+                    console.error("Error fetching cases:", error);
+                    document.getElementById('cases-list-body').innerHTML = `<tr><td colspan="6" class="text-secondary" style="text-align: center;">Error loading cases.</td></tr>`;
+                    return [];
+                }
+            }
+
+            const casesData = await fetchCases();
+
+            var options = {
+                valueNames: ['case_name', 'client', 'type', 'status', 'assigned_to', 'last_updated'],
+                item: `<tr>
+                            <td class="case_name"></td>
+                            <td class="client"></td>
+                            <td class="type"></td>
+                            <td><span class="status-badge status"></span></td>
+                            <td class="assigned_to"></td>
+                            <td class="last_updated"></td>
+                       </tr>`
+            };
+
+            var caseList = new List('cases-dashboard', options, casesData);
+
+            // Add click listener for rows to show details
+            document.getElementById('cases-list-body').addEventListener('click', (event) => {
+                const row = event.target.closest('tr');
+                if (row) {
+                    const caseId = row.querySelector('.case_name').textContent.replace('...', ''); // Get the actual case_id (or part of it)
+                    const fullCase = casesData.find(c => c.case_id === caseId || c.case_name.startsWith(caseId));
+
+                    if (fullCase) {
+                        document.getElementById('details-case-id').textContent = fullCase.case_id;
+                        const statusBadge = document.getElementById('details-status');
+                        statusBadge.textContent = fullCase.status;
+                        statusBadge.className = `status-badge status-badge-${fullCase.status.toLowerCase().replace(' ', '-')}`;
+                        document.getElementById('details-phone').textContent = fullCase.caller_phone_number || 'N/A';
+                        document.getElementById('details-created').textContent = fullCase.created_at;
+                        document.getElementById('details-summary').textContent = fullCase.call_summary;
+                        document.getElementById('details-structured-intake').textContent = JSON.stringify(fullCase.structured_intake, null, 2);
+                        document.getElementById('details-full-transcript').textContent = fullCase.full_transcript;
+
+                        const notesList = document.getElementById('details-follow-up-notes');
+                        notesList.innerHTML = ''; // Clear previous notes
+                        if (fullCase.follow_up_notes && fullCase.follow_up_notes.length > 0) {
+                            fullCase.follow_up_notes.forEach(note => {
+                                const li = document.createElement('li');
+                                li.innerHTML = `<strong>${new Date(note.timestamp).toLocaleString()}:</strong> ${note.summary}`;
+                                notesList.appendChild(li);
+                            });
+                        } else {
+                            notesList.innerHTML = `<li class="text-secondary">No follow-up notes.</li>`;
+                        }
+
+                        document.getElementById('case-details-display').style.display = 'block';
+                    }
+                }
+            });
+
+            // Filter buttons logic (example for 'All Cases' and a mock 'My Cases')
+            document.querySelectorAll('.secondary-button[data-filter]').forEach(button => {
+                button.addEventListener('click', function() {
+                    document.querySelectorAll('.secondary-button[data-filter]').forEach(btn => btn.classList.remove('active-tab'));
+                    this.classList.add('active-tab');
+                    const filter = this.dataset.filter;
+                    if (filter === 'all') {
+                        caseList.filter(); // Show all
+                    } else if (filter === 'my') {
+                        caseList.filter(function(item) {
+                            return item.values().assigned_to === 'Unassigned'; // Replace with actual user's name
+                        });
+                    } else if (filter === 'unassigned') {
+                        caseList.filter(function(item) {
+                            return item.values().assigned_to === 'Unassigned';
+                        });
+                    }
+                });
+            });
+
+             // Search functionality for List.js
+            document.getElementById('search-cases').addEventListener('keyup', function() {
+                caseList.search(this.value);
+            });
+        });
+    </script>
+</body>
+</html>

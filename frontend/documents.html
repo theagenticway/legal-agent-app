@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Case Intake - LegalAI</title>
+    <title>Documents - LegalAI</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -55,7 +55,7 @@
             <!-- Top Header -->
             <header class="app-header">
                 <div class="header-left">
-                    <h1 class="section-title" style="margin-bottom: 0;">Case Intake</h1>
+                    <h1 class="section-title" style="margin-bottom: 0;">Documents</h1>
                 </div>
                 <div class="header-right">
                     <div class="search-bar">
@@ -75,48 +75,25 @@
 
             <!-- Page Specific Content -->
             <main class="main-content">
-                <section class="case-intake-container card p-6">
-                    <h2 class="subsection-title">Manual Entry</h2>
-                    <form id="manual-intake-form" style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 40px;">
-                        <label class="text-secondary text-sm">Client Name:
-                            <input type="text" name="client_name" placeholder="John Doe" class="input-field mt-1">
-                        </label>
-                        <label class="text-secondary text-sm">Opposing Party:
-                            <input type="text" name="opposing_party" placeholder="ABC Corp" class="input-field mt-1">
-                        </label>
-                        <label class="text-secondary text-sm">Case Type:
-                            <input type="text" name="case_type" placeholder="Contract Dispute" class="input-field mt-1">
-                        </label>
-                        <label class="text-secondary text-sm">Summary of Facts:
-                            <textarea name="summary_of_facts" placeholder="Brief summary of the case..." rows="4" class="input-field mt-1"></textarea>
-                        </label>
-                        <label class="text-secondary text-sm">Key Dates (comma-separated):
-                            <input type="text" name="key_dates" placeholder="MM/DD/YYYY, MM/DD/YYYY" class="input-field mt-1">
-                        </label>
-                        <button type="submit" class="button primary-button mt-4">
-                            <i data-feather="save"></i> Submit Manual Intake
-                        </button>
-                    </form>
-
-                    <h2 class="subsection-title">Intake from Audio File</h2>
-                    <div class="dropzone card" id="file-upload-zone" style="padding: 24px;">
-                        <div class="dropzone-inner">
-                            <i data-feather="upload-cloud" style="width: 32px; height: 32px;"></i>
-                            <p class="font-semibold"><b>Drag and drop audio file here</b></p>
-                            <p class="small-text text-secondary">or click to select file</p>
-                            <input type="file" id="audio-upload-input" accept="audio/*" class="dropzone-input">
-                        </div>
-                    </div>
-                    <button id="transcribe-button" class="button secondary-button mt-4">
-                        <i data-feather="mic"></i> Transcribe Audio & Process Intake
-                    </button>
-                    <div id="transcription-status" class="text-secondary text-sm mt-3"></div>
+                <section class="card p-6">
+                    <p style="text-align: center; color: var(--text-secondary); margin-top: 50px;">Documents screen content coming soon!</p>
                 </section>
             </main>
         </div>
     </div>
 
     <script src="js/global.js"></script>
-    <script src="js/case_intake.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            feather.replace();
+            const path = window.location.pathname.split('/').pop();
+            const navLinks = document.querySelectorAll('.sidebar-nav .nav-item');
+            navLinks.forEach(link => {
+                if (link.getAttribute('href') === path) {
+                    link.classList.add('active');
+                }
+            });
+        });
+    </script>
 </body>
 </html>

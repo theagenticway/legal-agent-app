@@ -1,127 +1,152 @@
 // frontend/js/dashboard.js
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Dashboard Table Functionality (List.js)
-    const caseListOptions = {
-        valueNames: ['case_id', 'status', 'caller_phone_number', 'created_at'],
-        item: '<tr class="case-item"><td class="case_id"></td><td class="status"></td><td class="caller_phone_number"></td><td class="created_at"></td><td><button class="summarize-btn button secondary-button" style="margin-right: 8px;">Summarize</button><button class="view-details-btn button secondary-button">View Details</button></td></tr>'
-    };
+document.addEventListener('DOMContentLoaded', async () => {
+    feather.replace(); // Ensure icons are rendered
 
-    let caseList = null; // Will hold the List.js instance
-    let allCasesData = []; // Store full case data for details view
-
-    const caseDetailsDisplay = document.getElementById('case-details-display');
-    const detailsCaseId = document.getElementById('details-case-id');
-    const detailsStatus = document.getElementById('details-status');
-    const detailsPhone = document.getElementById('details-phone');
-    const detailsCreated = document.getElementById('details-created');
-    const detailsSummary = document.getElementById('details-summary');
-    const detailsStructuredIntake = document.getElementById('details-structured-intake');
-    const detailsFullTranscript = document.getElementById('details-full-transcript');
-    const detailsFollowUpNotes = document.getElementById('details-follow-up-notes');
-
-    async function fetchCases() {
+    // Function to fetch and render overview counts
+    async function renderOverview() {
         try {
-            const response = await fetch('/api/cases');
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            const response = await fetch('/api/dashboard/overview');
+            if (!response.ok) throw new Error('Failed to fetch overview data');
+            const data = await response.json();
+
+            document.getElementById('active-contracts-count').textContent = data.active_contracts;
+            document.getElementById('upcoming-deadlines-count').textContent = data.upcoming_deadlines;
+            document.getElementById('new-notifications-count').textContent = data.new_notifications;
+
+            // Also update the badge in the header if it exists
+            const notificationBadge = document.querySelector('.notification-icon .badge');
+            if (notificationBadge) {
+                notificationBadge.textContent = data.new_notifications;
+                notificationBadge.style.display = data.new_notifications > 0 ? 'block' : 'none';
             }
-            allCasesData = await response.json(); // Store full data
-            console.log('Fetched cases:', allCasesData);
-
-            // Format dates for display in the table
-            const formattedCases = allCasesData.map(c => ({
-                ...c,
-                created_at: new Date(c.created_at).toLocaleDateString('en-US', {
-                    year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-                })
-            }));
-
-            if (!caseList) {
-                caseList = new List('cases-dashboard', caseListOptions, formattedCases);
-                console.log('List.js initialized with cases.');
-            } else {
-                caseList.clear();
-                caseList.add(formattedCases);
-                console.log('List.js updated with new cases.');
-            }
-
-            // Add event listeners to summarize and view buttons
-            document.querySelectorAll('.summarize-btn').forEach(button => {
-                button.onclick = async (event) => {
-                    const row = event.target.closest('tr');
-                    const caseId = row.querySelector('.case_id').textContent;
-                    const originalCase = allCasesData.find(c => c.case_id === caseId);
-
-                    if (originalCase && originalCase.full_transcript) {
-                        const transcriptToSummarize = originalCase.full_transcript;
-                        const phone = originalCase.caller_phone_number;
-                        const summaryQuery = `Please summarize the call transcript for case ID ${caseId} from phone number ${phone}:\n\n${transcriptToSummarize}`;
-                        // Redirect to agent chat and send the query
-                        sessionStorage.setItem('agentChatInitialQuery', summaryQuery);
-                        window.location.href = 'agent.html';
-
-                    } else {
-                        alert('Full transcript not available for this case.');
-                    }
-                };
-            });
-
-            document.querySelectorAll('.view-details-btn').forEach(button => {
-                button.onclick = (event) => {
-                    const row = event.target.closest('tr');
-                    const caseId = row.querySelector('.case_id').textContent;
-                    const caseToDisplay = allCasesData.find(c => c.case_id === caseId);
-                    displayCaseDetails(caseToDisplay);
-                };
-            });
 
         } catch (error) {
-            console.error('Error fetching cases:', error);
-            const dashboardTableBody = document.querySelector('#cases-dashboard .list');
-            if (dashboardTableBody) {
-                dashboardTableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-secondary);">Error loading cases: ${error.message}</td></tr>`;
+            console.error('Error rendering overview:', error);
+            // Optionally display an error message on the UI
+        }
+    }
+
+    // Function to fetch and render lists (recent activity, deadlines, notifications)
+    async function renderList(endpoint, containerId, itemTemplateFunc) {
+        try {
+            const response = await fetch(endpoint);
+            if (!response.ok) throw new Error(`Failed to fetch data from ${endpoint}`);
+            const data = await response.json();
+
+            const container = document.getElementById(containerId);
+            if (container) {
+                container.innerHTML = ''; // Clear existing placeholders
+                if (data.length === 0) {
+                    container.innerHTML = `<p class="text-secondary" style="text-align: center; padding: 20px;">No items to display.</p>`;
+                    return;
+                }
+                data.forEach(item => {
+                    const itemHtml = itemTemplateFunc(item);
+                    container.insertAdjacentHTML('beforeend', itemHtml);
+                });
+            }
+        } catch (error) {
+            console.error(`Error rendering list from ${endpoint}:`, error);
+            const container = document.getElementById(containerId);
+            if (container) {
+                container.innerHTML = `<p class="text-secondary" style="text-align: center; padding: 20px;">Error loading data.</p>`;
             }
         }
     }
 
-    function displayCaseDetails(caseData) {
-        if (!caseData) {
-            caseDetailsDisplay.style.display = 'none';
-            return;
-        }
+    // Item template functions
+    function activityItemTemplate(activity) {
+        const iconMapping = {
+            "Contract Review": "file-text",
+            "Legal Research": "search",
+            "Case Management": "briefcase",
+            "Client Onboarding": "users",
+            // Add more as needed
+        };
+        const icon = iconMapping[activity.activity_type] || "activity"; // Default icon
+        const timeAgo = new Date(activity.performed_at).toLocaleDateString(undefined, {
+            year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric'
+        }); // Or use a library like moment.js for "X days ago"
 
-        detailsCaseId.textContent = caseData.case_id || 'N/A';
-        detailsStatus.textContent = caseData.status || 'N/A';
-        detailsPhone.textContent = caseData.caller_phone_number || 'N/A';
-        detailsCreated.textContent = new Date(caseData.created_at).toLocaleString() || 'N/A';
-        detailsSummary.textContent = caseData.call_summary || 'N/A';
-
-        try {
-            detailsStructuredIntake.textContent = JSON.stringify(caseData.structured_intake, null, 2) || 'No structured intake data.';
-        } catch (e) {
-            detailsStructuredIntake.textContent = caseData.structured_intake || 'Malformed structured intake data.';
-        }
-
-        detailsFullTranscript.textContent = caseData.full_transcript || 'No full transcript available.';
-
-        detailsFollowUpNotes.innerHTML = '';
-        if (caseData.follow_up_notes && caseData.follow_up_notes.length > 0) {
-            caseData.follow_up_notes.forEach(note => {
-                const li = document.createElement('li');
-                li.style.marginBottom = '10px';
-                li.innerHTML = `<strong>${new Date(note.timestamp).toLocaleString()}:</strong> ${note.summary}<br><small>${note.transcript.substring(0, 150)}...</small>`;
-                detailsFollowUpNotes.appendChild(li);
-            });
-        } else {
-            detailsFollowUpNotes.innerHTML = '<li>No follow-up notes.</li>';
-        }
-
-        caseDetailsDisplay.style.display = 'block';
-        caseDetailsDisplay.scrollIntoView({ behavior: 'smooth' }); // Scroll to details
+        return `
+            <div class="flex items-center gap-4">
+                <i data-feather="${icon}" class="text-secondary" style="width: 20px; height: 20px;"></i>
+                <span class="text-primary flex-grow-1">${activity.description}</span>
+                <span class="text-secondary text-sm">${activity.activity_type} - ${timeAgo}</span>
+            </div>
+        `;
     }
 
+    function deadlineItemTemplate(deadline) {
+        const iconMapping = {
+            "Review": "file-text",
+            "Litigation": "tool",
+            "Compliance": "shield",
+            "Intake": "user-plus",
+            "Communication": "message-square"
+            // Add more as needed
+        };
+        const icon = iconMapping[deadline.task_type] || "calendar";
+        const dueDate = new Date(deadline.due_date);
+        const now = new Date();
+        let dueText = '';
+        if (dueDate < now && deadline.status !== 'Completed') {
+            dueText = `<span style="color: #EF4444; font-weight: 600;">Overdue</span>`; // Red for overdue
+        } else {
+            const diffDays = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+            if (diffDays === 0) {
+                dueText = `Due Today`;
+            } else if (diffDays === 1) {
+                dueText = `Due Tomorrow`;
+            } else if (diffDays > 0) {
+                dueText = `Due in ${diffDays} days`;
+            } else {
+                dueText = `Past Due`; // Should be caught by overdue logic, but fallback
+            }
+        }
+        
+        return `
+            <div class="flex items-center gap-4">
+                <i data-feather="${icon}" class="text-secondary" style="width: 20px; height: 20px;"></i>
+                <span class="text-primary flex-grow-1">${deadline.title}</span>
+                <span class="text-secondary text-sm">${dueText}</span>
+            </div>
+        `;
+    }
 
-    fetchCases();
-    setInterval(fetchCases, 30000);
+    function notificationItemTemplate(notification) {
+        const iconMapping = {
+            "Contract Review": "file-text",
+            "Legal Research": "search",
+            "Case Status": "briefcase",
+            "Welcome": "bell",
+            // Add more as needed
+        };
+        const icon = iconMapping[notification.notification_type] || "bell";
+        const timeAgo = new Date(notification.created_at).toLocaleDateString(undefined, {
+            year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric'
+        });
+
+        // Add class for unread notifications for styling if desired
+        const readClass = notification.is_read ? '' : 'font-semibold'; // Unread notifications are bold
+        const readColor = notification.is_read ? 'text-secondary' : 'text-primary';
+
+        return `
+            <div class="flex items-center gap-4 ${readClass}" ${notification.is_read ? '' : 'style="background-color: rgba(27, 185, 154, 0.05); padding: 8px 12px; border-radius: 8px; margin: -8px -12px;"'}>
+                <i data-feather="${icon}" class="${notification.is_read ? 'text-secondary' : 'text-accent'}" style="width: 20px; height: 20px;"></i>
+                <span class="${readColor} flex-grow-1">${notification.message}</span>
+                <span class="${readColor} text-sm">${notification.notification_type}</span>
+            </div>
+        `;
+    }
+
+    // Initial render calls
+    await renderOverview();
+    await renderList('/api/dashboard/recent-activity', 'recent-activity-container', activityItemTemplate);
+    await renderList('/api/dashboard/upcoming-deadlines', 'upcoming-deadlines-container', deadlineItemTemplate);
+    await renderList('/api/dashboard/notifications', 'notifications-container', notificationItemTemplate);
+
+    // Re-render Feather icons after dynamic content is added
+    feather.replace();
 });

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agent Chat & Document Upload - The Agentic Way</title>
+    <title>Agent Chat & Document Upload - LegalAI</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -12,81 +12,134 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- TOP HEADER - Consistent across all pages -->
-        <header class="app-header">
-            <div class="header-left">
-                <div class="logo">
-                    <i data-feather="box"></i>
-                    <span>The Agentic Way</span>
-                </div>
-                <nav class="main-nav">
-                    <a href="dashboard.html" class="nav-link">Dashboard</a>
-                    <a href="case-intake.html" class="nav-link">Intake</a>
-                    <a href="agent.html" class="nav-link active">Agent Chat</a>
-                    <a href="index.html" class="nav-link">Home</a>
-                </nav>
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <i data-feather="box"></i>
+                <span>LegalAI</span>
             </div>
-            <div class="header-right">
-                <div class="search-bar">
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="nav-item">
+                    <i data-feather="home"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="clients.html" class="nav-item">
+                    <i data-feather="users"></i>
+                    <span>Clients</span>
+                </a>
+                <a href="cases.html" class="nav-item">
+                    <i data-feather="briefcase"></i>
+                    <span>Cases</span>
+                </a>
+                <a href="documents.html" class="nav-item">
+                    <i data-feather="file-text"></i>
+                    <span>Documents</span>
+                </a>
+                <a href="research.html" class="nav-item">
                     <i data-feather="search"></i>
-                    <input type="text" id="global-search" class="search" placeholder="Search cases...">
-                </div>
-                <div class="user-profile">
-                    <img src="https://i.pravatar.cc/32?u=legal-ai" alt="User Avatar">
-                </div>
-            </div>
-        </header>
+                    <span>Research</span>
+                </a>
+                <a href="tasks.html" class="nav-item">
+                    <i data-feather="check-square"></i>
+                    <span>Tasks</span>
+                </a>
+                <a href="agent.html" class="nav-item">
+                    <i data-feather="message-square"></i>
+                    <span>Agent Chat</span>
+                </a>
+            </nav>
+        </aside>
 
-        <!-- MAIN CONTENT GRID - Agent Chat -->
-        <main class="main-content" style="grid-template-columns: 1fr;">
-            <section class="rag-indexed-docs-container" style="margin-top: 5px;">
-                <h3 class="subsection-title">Currently Indexed Documents (RAG)</h3>
-                <div class="table-wrapper">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Filename</th>
-                                <th>Chunks</th>
-                                <th>Indexed At</th>
-                                <th>Actions</th> <!-- NEW COLUMN for delete button -->
-                            </tr>
-                        </thead>
-                        <tbody id="indexed-docs-list">
-                            <!-- Indexed documents will be loaded here by JS -->
-                            <tr><td colspan="3" style="text-align: center; color: var(--text-secondary);">Loading indexed documents...</td></tr>
-                        </tbody>
-                    </table>
+        <!-- Main Content Area -->
+        <div class="main-area">
+            <!-- Top Header -->
+            <header class="app-header">
+                <div class="header-left">
+                    <h1 class="section-title" style="margin-bottom: 0;">Agent Chat</h1>
                 </div>
-            </section>
-            <section class="chat-container" style="border-right: none; padding-right: 0;">
-                <h2 class="section-title">Agent Chat</h2>
-                <!-- Chat messages will take all available space and scroll -->
-                <div class="chat-messages" id="response-container">
-                    <!-- Chat messages will be added here by JS -->
+                <div class="header-right">
+                    <div class="search-bar">
+                        <i data-feather="search"></i>
+                        <input type="text" id="global-search" placeholder="Search...">
+                    </div>
+                    <div class="notification-icon">
+                        <i data-feather="bell"></i>
+                        <span class="badge">3</span>
+                    </div>
+                    <div class="user-profile">
+                        <img src="https://i.pravatar.cc/32?u=legal-ai-user" alt="User Avatar">
+                        <span>Alex</span>
+                    </div>
                 </div>
-            </section>
-            <!-- Moved this section here, outside the chat-container -->
-            
-        </main>
+            </header>
 
-        <!-- Floating Input Area (outside main-content for fixed positioning) -->
-        <div class="floating-input-wrapper">
-            <div id="loading-indicator" style="display: none;">
-                    <div class="spinner"></div><span>Agent is thinking...</span>
+            <!-- Page Specific Content -->
+            <main class="main-content" style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 32px; padding-bottom: 120px;">
+                <!-- RAG Indexed Docs Section -->
+                <section class="rag-indexed-docs-container card p-6" style="min-width: 300px;">
+                    <h2 class="subsection-title">Currently Indexed Documents (RAG)</h2>
+                    <div class="table-wrapper">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Filename</th>
+                                    <th>Chunks</th>
+                                    <th>Indexed At</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="indexed-docs-list">
+                                <!-- Indexed documents will be loaded here by JS -->
+                                <tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">Loading indexed documents...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Document Upload Zone for RAG -->
+                    <h2 class="subsection-title" style="margin-top: 32px;">Upload Documents for RAG</h2>
+                    <div class="dropzone card" id="rag-file-upload-zone" style="padding: 24px;">
+                        <div class="dropzone-inner">
+                            <i data-feather="upload-cloud" style="width: 32px; height: 32px;"></i>
+                            <p class="font-semibold"><b>Drag and drop documents here</b></p>
+                            <p class="small-text text-secondary">or click to select files (.txt, .pdf)</p>
+                            <input type="file" id="rag-upload-input" accept=".txt,.pdf" multiple class="dropzone-input">
+                        </div>
+                    </div>
+                    <button id="process-rag-docs-button" class="button secondary-button mt-4">
+                        <i data-feather="upload"></i> Process Documents for RAG
+                    </button>
+                    <div id="rag-doc-upload-status" class="text-secondary text-sm mt-3"></div>
+                </section>
+
+                <!-- Agent Chat Section -->
+                <section class="chat-container" style="display: flex; flex-direction: column; overflow: hidden;">
+                    <h2 class="subsection-title">Agent Chat Interface</h2>
+                    <!-- Chat messages will take all available space and scroll -->
+                    <div class="chat-messages card p-6 flex-grow-1" id="response-container" style="margin-bottom: 0;">
+                        <!-- Chat messages will be added here by JS -->
+                    </div>
+                </section>
+            </main>
+
+            <!-- Floating Input Area (outside main-content for fixed positioning) -->
+            <div class="floating-input-wrapper">
+                <div id="loading-indicator" style="display: none;">
+                        <div class="spinner"></div><span>Agent is thinking...</span>
+                    </div>
+                <div class="chat-input-area">
+                    <input type="file" id="doc-upload-input" accept=".txt,.pdf" multiple style="display: none;">
+                    <button type="button" id="attach-button" class="icon-button" title="Attach Document"><i data-feather="paperclip"></i></button>
+                    <textarea id="query-input" placeholder="Ask the agent or attach documents..." required rows="1"></textarea>
+                    <button type="submit" id="submit-button" title="Send"><i data-feather="send"></i></button>
                 </div>
-            <div class="chat-input-area">
-                <input type="file" id="doc-upload-input" accept=".txt,.pdf" multiple style="display: none;">
-                <button type="button" id="attach-button" class="icon-button" title="Attach Document"><i data-feather="paperclip"></i></button>
-                <textarea id="query-input" placeholder="Ask the agent or attach documents..." required rows="3"></textarea>
-                <button type="submit" id="submit-button" title="Send"><i data-feather="send"></i></button>
+                <div id="selected-files-preview" style="display: none;">
+                    <strong>Selected Files:</strong> <span id="file-names"></span>
+                    <button type="button" id="clear-files-button"><i data-feather="x-circle"></i> Clear</button>
+                </div>
+                <div id="doc-upload-status" class="text-secondary text-sm mt-2"></div>
             </div>
-            <div id="selected-files-preview" style="display: none; margin-top: 10px; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--bg-medium); color: var(--text-secondary); font-size: 12px;">
-                <strong>Selected Files:</strong> <span id="file-names"></span>
-                <button type="button" id="clear-files-button" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; margin-left: 10px; font-size: 10px;"><i data-feather="x-circle"></i> Clear</button>
-            </div>
-            <div id="doc-upload-status" style="margin-top: 10px; font-size: 12px; color: var(--text-secondary);"></div>
+
         </div>
-
     </div>
 
     <script src="js/global.js"></script>
