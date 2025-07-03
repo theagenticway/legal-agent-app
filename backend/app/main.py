@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 # Import List and Dict for type hinting
 from typing import List, Optional, Dict, Any 
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from .core.agent import create_agent_executor
 from .core.tools import case_intake_extractor
 import shutil
@@ -194,6 +194,7 @@ async def handle_vapi_interaction(request: VapiWebhookRequest):
             
             if not message_payload.conversation:
                 print("❌ No conversation data in payload")
+                print("DEBUG: Returning from conversation-update (no convo data)") #PointA
                 return {"message": "No conversation data received"}
             
             conversation_history = message_payload.conversation
@@ -217,6 +218,7 @@ async def handle_vapi_interaction(request: VapiWebhookRequest):
                 
                 if not user_input or user_input.strip() == "":
                     print("❌ Empty user input")
+                    print("DEBUG: Returning from conversation-update (empty user input)")#pointB
                     return {"message": "I didn't receive any message content"}
                 
                 # Get caller info
@@ -230,26 +232,28 @@ async def handle_vapi_interaction(request: VapiWebhookRequest):
                 # Build chat history (exclude the last message as it's the current input)
                 langchain_history = []
                 # --- NEW: Retrieve and Inject Caller-Specific Context ---
-            caller_context_message = ""
-            if caller_phone_number != "Unknown":
-                try:
-                    # Use the async database reader tool directly to get client data
-                    # This is efficient because it avoids an extra agent "tool-use" step
-                    # if the data is critical for every turn.
-                    client_data = await database_case_reader_async(caller_phone_number)
-                    if client_data:
-                        caller_context_message = f"Here is relevant information about the current caller ({caller_phone_number}) from your internal database:\n{client_data}"
-                        print(f"🔍 Injected caller context:\n{caller_context_message[:200]}...")
-                    else:
-                        caller_context_message = f"No existing case information found for caller {caller_phone_number}."
-                        print(f"🔍 No context found for caller {caller_phone_number}.")
-                except Exception as e:
-                    print(f"⚠️ Error retrieving caller context: {e}")
-                    caller_context_message = "An error occurred while retrieving caller information from the database."
-            
-            # Add the caller context as a SystemMessage at the very beginning
-            if caller_context_message:
-                langchain_history.append(SystemMessage(content=caller_context_message))
+                #caller_context_message = "" # Removed this line as it will be assigned below
+                if caller_phone_number != "Unknown":
+                    try:
+                        client_data = await database_case_reader_async(caller_phone_number)
+                        if client_data:
+                            caller_context_message = f"Here is relevant information about the current caller ({caller_phone_number}) from your internal database:\n{client_data}"
+                            print(f"🔍 Injected caller context:\n{caller_context_message[:200]}...")
+                        else:
+                            caller_context_message = f"No existing case information found for caller {caller_phone_number}."
+                            print(f"🔍 No context found for caller {caller_phone_number}.")
+                    except Exception as e:
+                        print(f"⚠️ Error retrieving caller context for {caller_phone_number}: {e}") # Added phone number to error log
+                        caller_context_message = "An error occurred while retrieving caller information from the database."
+                else:
+                    # If phone number is unknown, no specific caller context can be retrieved.
+                    # Provide a default empty message or a generic one.
+                    caller_context_message = "" # Default to empty if phone number is unknown
+                    print("🔍 Caller phone number unknown, skipping specific context retrieval.")
+
+                # Add the caller context as a SystemMessage at the very beginning
+                if caller_context_message: # Only add if there's actual content
+                    langchain_history.append(SystemMessage(content=caller_context_message))
             # --- END NEW ---
                 for msg in conversation_history[:-1]:  # Exclude last message
                     if msg.role == "user":
@@ -286,6 +290,7 @@ async def handle_vapi_interaction(request: VapiWebhookRequest):
                         print(f"💬 Converted to string: '{agent_text_output}'")
                     
                     print(f"📤 Returning to Vapi: '{agent_text_output}'")
+                    print("DEBUG: Returning from conversation-update (agent response)")#PointC
                     return {"message": agent_text_output}
                     
                 except Exception as agent_error:
@@ -294,10 +299,11 @@ async def handle_vapi_interaction(request: VapiWebhookRequest):
                     import traceback
                     print("❌ Full traceback:")
                     traceback.print_exc()
-                    
+                    print("DEBUG: Returning from conversation-update (agent error)") #PointD
                     return {"message": "I apologize, but I encountered an issue processing your request. Please try again."}
             else:
                 print(f"⏭️ Skipping non-user message (role: {last_message.role})")
+                print("DEBUG: Returning from conversation-update (non-user message)") #PointE
                 return {}
 
         # --- ROUTE 2: Handle the end-of-call summary ---
@@ -317,6 +323,7 @@ async def handle_vapi_interaction(request: VapiWebhookRequest):
 
                 print(f"📋 Processing end-of-call for {caller_phone_number}, call ID: {vapi_call_id}")
                 await process_call_transcript(final_transcript, caller_phone_number, vapi_call_id)
+                print("DEBUG: Returning from status-update") #PointF
             else:
                 print("❌ No final transcript artifact found in end-of-call payload")
 
@@ -327,6 +334,7 @@ async def handle_vapi_interaction(request: VapiWebhookRequest):
             print(f"🔇 Ignoring event - Type: {event_type}, Status: {status}")
 
         print("✅ Webhook processing complete")
+        print("DEBUG: Returning from default ignored event") #PointG
         return {}
         
     except Exception as e:
@@ -335,6 +343,7 @@ async def handle_vapi_interaction(request: VapiWebhookRequest):
         import traceback
         print("💥 Full traceback:")
         traceback.print_exc()
+        print("DEBUG: Returning from global webhook processing error") #PointH
         return {"error": "Internal server error"}
 @app.post("/agent-query")
 async def perform_agent_query(query: Query):

@@ -10,7 +10,8 @@ from .tools import (
     LegalDocumentRetrieverTool,
     WebSearchTool,
     CaseIntakeExtractorTool,
-    DatabaseCaseReaderTool
+    #DatabaseCaseReaderTool
+    AsyncDatabaseCaseReaderTool # <-- NEW: Import the async version
 )
 
 def create_agent_executor():
@@ -31,7 +32,7 @@ def create_agent_executor():
         LegalDocumentRetrieverTool,
         WebSearchTool,
         CaseIntakeExtractorTool,
-        DatabaseCaseReaderTool
+        AsyncDatabaseCaseReaderTool # <-- NEW: Use the async version here
     ]
 
     print(f"🔧 Testing {len(tools)} tools...")
