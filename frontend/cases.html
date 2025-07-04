@@ -35,7 +35,6 @@
                 <a href="documents.html" class="nav-item">
                     <i data-feather="file-text"></i>
                     <span>Documents</span>
-                    
                 </a>
                 <a href="research.html" class="nav-item">
                     <i data-feather="search"></i>
@@ -77,15 +76,15 @@
 
             <!-- Page Specific Content -->
             <main class="main-content">
-                <section class="card p-6" id="cases-dashboard">
+                <section class="card p-6" id="cases-section"> <!-- Renamed ID to avoid conflict with List.js scope -->
                     <div class="flex items-center justify-between mb-4">
-                        <input type="text" class="input-field search-bar" id="search-cases" placeholder="Search cases..." style="max-width: 300px;">
-                        <button class="button primary-button">
+                        <input type="text" class="input-field search" id="search-cases" placeholder="Search cases..." style="max-width: 300px;">
+                        <button class="button primary-button" onclick="location.href='case-intake.html'">
                             <i data-feather="plus"></i> New Case
                         </button>
                     </div>
 
-                    <div class="flex gap-4 mb-4">
+                    <div class="flex gap-4 mb-4" id="case-filters">
                         <button class="button secondary-button active-tab" data-filter="all">All Cases</button>
                         <button class="button secondary-button" data-filter="my">My Cases</button>
                         <button class="button secondary-button" data-filter="unassigned">Unassigned</button>
@@ -96,11 +95,11 @@
                             <thead>
                                 <tr>
                                     <th class="sort" data-sort="case_name">Case Name</th>
-                                    <th class="sort" data-sort="client">Client</th>
+                                    <th class="sort" data-sort="client_name">Client</th>
                                     <th class="sort" data-sort="type">Type</th>
                                     <th class="sort" data-sort="status">Status</th>
                                     <th class="sort" data-sort="assigned_to">Assigned To</th>
-                                    <th class="sort" data-sort="last_updated">Last Updated</th>
+                                    <th class="sort" data-sort="last_updated_display">Last Updated</th>
                                 </tr>
                             </thead>
                             <tbody class="list" id="cases-list-body">
@@ -110,13 +109,18 @@
                         </table>
                     </div>
 
-                    <!-- Case Details Display (Existing, but styled) -->
+                    <!-- Case Details Display -->
                     <div id="case-details-display" class="card p-6 mt-8" style="display: none;">
                         <h3 class="subsection-title mb-4">Case Details: <span id="details-case-id" class="text-accent"></span></h3>
                         <div class="grid grid-cols-2 gap-4 text-sm mb-4">
                             <p><strong>Status:</strong> <span id="details-status" class="status-badge"></span></p>
+                            <p><strong>Assigned To:</strong> <span id="details-assigned-to" class="text-primary"></span></p>
+                            <p><strong>Client:</strong> <span id="details-client-name" class="text-primary"></span></p>
                             <p><strong>Phone:</strong> <span id="details-phone" class="text-primary"></span></p>
+                            <p><strong>Type:</strong> <span id="details-case-type" class="text-primary"></span></p>
                             <p><strong>Created:</strong> <span id="details-created" class="text-primary"></span></p>
+                            <p><strong>Last Updated:</strong> <span id="details-last-updated" class="text-primary"></span></p>
+                            <p><strong>Vapi Call ID:</strong> <span id="details-vapi-call-id" class="text-primary"></span></p>
                         </div>
                         <p class="mb-4"><strong>Summary:</strong> <span id="details-summary" class="text-primary"></span></p>
 
@@ -141,120 +145,6 @@
     </div>
 
     <script src="js/global.js"></script>
-    <script src="js/dashboard.js"></script> <!-- This will be renamed to cases.js later -->
-    <script>
-        // Temporary script to make sure List.js works and shows mock data
-        document.addEventListener('DOMContentLoaded', async () => {
-            feather.replace();
-
-            // Your existing fetch logic for cases
-            async function fetchCases() {
-                try {
-                    const response = await fetch('/api/cases');
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    const casesData = await response.json();
-                    return casesData.map(c => ({
-                        id: c.id,
-                        case_id: c.case_id,
-                        caller_phone_number: c.caller_phone_number,
-                        status: c.status,
-                        structured_intake: JSON.parse(c.structured_intake), // Parse JSON string
-                        call_summary: c.call_summary,
-                        full_transcript: c.full_transcript,
-                        follow_up_notes: JSON.parse(c.follow_up_notes || '[]'), // Parse JSON string, default to empty array
-                        created_at: new Date(c.created_at).toLocaleString(),
-                        // Add mock data for new columns to fill the table
-                        case_name: c.structured_intake ? JSON.parse(c.structured_intake).summary_of_facts.substring(0, 30) + '...' : c.case_id,
-                        client: c.structured_intake ? JSON.parse(c.structured_intake).client_name : 'N/A',
-                        type: c.structured_intake ? JSON.parse(c.structured_intake).case_type : 'N/A',
-                        assigned_to: 'Unassigned', // Placeholder
-                        last_updated: new Date(c.created_at).toISOString().split('T')[0] // Just date
-                    }));
-                } catch (error) {
-                    console.error("Error fetching cases:", error);
-                    document.getElementById('cases-list-body').innerHTML = `<tr><td colspan="6" class="text-secondary" style="text-align: center;">Error loading cases.</td></tr>`;
-                    return [];
-                }
-            }
-
-            const casesData = await fetchCases();
-
-            var options = {
-                valueNames: ['case_name', 'client', 'type', 'status', 'assigned_to', 'last_updated'],
-                item: `<tr>
-                            <td class="case_name"></td>
-                            <td class="client"></td>
-                            <td class="type"></td>
-                            <td><span class="status-badge status"></span></td>
-                            <td class="assigned_to"></td>
-                            <td class="last_updated"></td>
-                       </tr>`
-            };
-
-            var caseList = new List('cases-dashboard', options, casesData);
-
-            // Add click listener for rows to show details
-            document.getElementById('cases-list-body').addEventListener('click', (event) => {
-                const row = event.target.closest('tr');
-                if (row) {
-                    const caseId = row.querySelector('.case_name').textContent.replace('...', ''); // Get the actual case_id (or part of it)
-                    const fullCase = casesData.find(c => c.case_id === caseId || c.case_name.startsWith(caseId));
-
-                    if (fullCase) {
-                        document.getElementById('details-case-id').textContent = fullCase.case_id;
-                        const statusBadge = document.getElementById('details-status');
-                        statusBadge.textContent = fullCase.status;
-                        statusBadge.className = `status-badge status-badge-${fullCase.status.toLowerCase().replace(' ', '-')}`;
-                        document.getElementById('details-phone').textContent = fullCase.caller_phone_number || 'N/A';
-                        document.getElementById('details-created').textContent = fullCase.created_at;
-                        document.getElementById('details-summary').textContent = fullCase.call_summary;
-                        document.getElementById('details-structured-intake').textContent = JSON.stringify(fullCase.structured_intake, null, 2);
-                        document.getElementById('details-full-transcript').textContent = fullCase.full_transcript;
-
-                        const notesList = document.getElementById('details-follow-up-notes');
-                        notesList.innerHTML = ''; // Clear previous notes
-                        if (fullCase.follow_up_notes && fullCase.follow_up_notes.length > 0) {
-                            fullCase.follow_up_notes.forEach(note => {
-                                const li = document.createElement('li');
-                                li.innerHTML = `<strong>${new Date(note.timestamp).toLocaleString()}:</strong> ${note.summary}`;
-                                notesList.appendChild(li);
-                            });
-                        } else {
-                            notesList.innerHTML = `<li class="text-secondary">No follow-up notes.</li>`;
-                        }
-
-                        document.getElementById('case-details-display').style.display = 'block';
-                    }
-                }
-            });
-
-            // Filter buttons logic (example for 'All Cases' and a mock 'My Cases')
-            document.querySelectorAll('.secondary-button[data-filter]').forEach(button => {
-                button.addEventListener('click', function() {
-                    document.querySelectorAll('.secondary-button[data-filter]').forEach(btn => btn.classList.remove('active-tab'));
-                    this.classList.add('active-tab');
-                    const filter = this.dataset.filter;
-                    if (filter === 'all') {
-                        caseList.filter(); // Show all
-                    } else if (filter === 'my') {
-                        caseList.filter(function(item) {
-                            return item.values().assigned_to === 'Unassigned'; // Replace with actual user's name
-                        });
-                    } else if (filter === 'unassigned') {
-                        caseList.filter(function(item) {
-                            return item.values().assigned_to === 'Unassigned';
-                        });
-                    }
-                });
-            });
-
-             // Search functionality for List.js
-            document.getElementById('search-cases').addEventListener('keyup', function() {
-                caseList.search(this.value);
-            });
-        });
-    </script>
+    <script src="js/cases.js"></script> <!-- Link to the new cases.js -->
 </body>
 </html>

@@ -12,6 +12,7 @@ from .core.agent import create_agent_executor
 from .core.tools import case_intake_extractor
 import shutil
 import uuid
+import json
 from .core.transcription import transcribe_audio_file
 from .core.post_call_processor import process_call_transcript
 
@@ -27,7 +28,8 @@ from .core.database import (
     notifications,  # NEW
     create_db_and_tables
 )
-from sqlalchemy import select, func # Added func for counts, and updated select
+from sqlalchemy import select, func, and_, cast, Text # Import cast and Text for JSON column handling
+from sqlalchemy.dialects.postgresql import JSONB # Ensure JSONB is imported if you use it for JSON columns in SELECT
 from .core.rag_pipeline import get_vector_store
 from langchain_community.document_loaders import TextLoader, PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -43,7 +45,9 @@ from .core.schemas import (
     RecentActivity,     # NEW
     UpcomingDeadline,   # NEW
     Notification,       # NEW
-    DashboardData       # NEW (though not used directly as a response model for one endpoint yet)
+    DashboardData,      # NEW (though not used directly as a response model for one endpoint yet)
+    Client, # NEW: Import Client schema
+    Case  # NEW: Import Case schema
 )
 
 from datetime import datetime, timezone, timedelta # Added timedelta
@@ -93,57 +97,169 @@ async def insert_sample_dashboard_data():
     # Using 'clients' table as a proxy for checking if sample data has been inserted
     if await database.fetch_val(select(func.count()).select_from(clients)) == 0:
         print("--- Inserting sample client data ---")
-        # --- FIX: Generate client_id explicitly ---
+        
+        # Generate UUIDs for clients upfront
         acme_client_id = uuid.uuid4().hex[:8].upper()
         tech_innovators_client_id = uuid.uuid4().hex[:8].upper()
         property_group_client_id = uuid.uuid4().hex[:8].upper()
         global_services_client_id = uuid.uuid4().hex[:8].upper()
         strategic_ventures_client_id = uuid.uuid4().hex[:8].upper()
 
+        # Insert clients
         await database.execute(clients.insert().values(
-            client_id=acme_client_id, # <--- ADDED
-            name="Acme Corp", contact_email="contact@acmecorp.com", phone_number="+15551234567", status="Active", last_activity_at=datetime.utcnow()
+            client_id=acme_client_id, name="Acme Corp", contact_email="contact@acmecorp.com", phone_number="+15551234567", status="Active", last_activity_at=datetime.utcnow()
         ))
         await database.execute(clients.insert().values(
-            client_id=tech_innovators_client_id, # <--- ADDED
-            name="Tech Innovators Inc.", contact_email="info@techinnovators.com", phone_number="+15559876543", status="Active", last_activity_at=datetime.utcnow() - timedelta(days=7)
+            client_id=tech_innovators_client_id, name="Tech Innovators Inc.", contact_email="info@techinnovators.com", phone_number="+15559876543", status="Active", last_activity_at=datetime.utcnow() - timedelta(days=7)
         ))
         await database.execute(clients.insert().values(
-            client_id=property_group_client_id, # <--- ADDED
-            name="Property Group LLC", contact_email="contact@propertygroup.com", phone_number="+15551112222", status="Active", last_activity_at=datetime.utcnow() - timedelta(days=14)
+            client_id=property_group_client_id, name="Property Group LLC", contact_email="contact@propertygroup.com", phone_number="+15551112222", status="Active", last_activity_at=datetime.utcnow() - timedelta(days=14)
         ))
         await database.execute(clients.insert().values(
-            client_id=global_services_client_id, # <--- ADDED
-            name="Global Services Ltd.", contact_email="info@globalservices.com", phone_number="+15553334444", status="Inactive", last_activity_at=datetime.utcnow() - timedelta(days=21)
+            client_id=global_services_client_id, name="Global Services Ltd.", contact_email="info@globalservices.com", phone_number="+15553334444", status="Inactive", last_activity_at=datetime.utcnow() - timedelta(days=21)
         ))
         await database.execute(clients.insert().values(
-            client_id=strategic_ventures_client_id, # <--- ADDED
-            name="Strategic Ventures Co.", contact_email="contact@strategicventures.com", phone_number="+15555556666", status="Active", last_activity_at=datetime.utcnow() - timedelta(days=28)
+            client_id=strategic_ventures_client_id, name="Strategic Ventures Co.", contact_email="contact@strategicventures.com", phone_number="+15555556666", status="Active", last_activity_at=datetime.utcnow() - timedelta(days=28)
         ))
 
-        # Fetch client IDs for foreign keys (after inserting clients)
-        # Use the generated IDs for lookup to be safe
-        acme_client = await database.fetch_one(select(clients.c.id).where(clients.c.client_id == acme_client_id))
-        tech_client = await database.fetch_one(select(clients.c.id).where(clients.c.client_id == tech_innovators_client_id))
+        # --- NEW: Fetch the actual ID and name of the inserted client records ---
+        # These variables are now correctly scoped and assigned right after insertion
+        acme_client_record = await database.fetch_one(select(clients.c.id, clients.c.name).where(clients.c.client_id == acme_client_id))
+        tech_client_record = await database.fetch_one(select(clients.c.id, clients.c.name).where(clients.c.client_id == tech_innovators_client_id))
+        property_group_client_record = await database.fetch_one(select(clients.c.id, clients.c.name).where(clients.c.client_id == property_group_client_id))
+        global_services_client_record = await database.fetch_one(select(clients.c.id, clients.c.name).where(clients.c.client_id == global_services_client_id))
+        strategic_ventures_client_record = await database.fetch_one(select(clients.c.id, clients.c.name).where(clients.c.client_id == strategic_ventures_client_id))
+
+        print("--- Inserting sample case data ---")
+        # Generate structured_intake JSON for cases
+        structured_intake_acme = json.dumps(CaseIntake(
+            client_name="Acme Corp",
+            opposing_party="Innovate Corp",
+            case_type="Contract Dispute",
+            summary_of_facts="Client Acme Corp has a dispute regarding terms of a software licensing agreement with Innovate Corp.",
+            key_dates=["01/15/2024", "02/20/2024"]
+        ).dict())
+
+        structured_intake_tech = json.dumps(CaseIntake(
+            client_name="Tech Innovators Inc.",
+            opposing_party="Competitor X",
+            case_type="Intellectual Property",
+            summary_of_facts="Tech Innovators Inc. is defending against a patent infringement claim by Competitor X related to their new AI algorithm.",
+            key_dates=["03/01/2022", "06/01/2023"]
+        ).dict())
+
+        structured_intake_property = json.dumps(CaseIntake(
+            client_name="Property Group LLC",
+            opposing_party="City Zoning Board",
+            case_type="Real Estate Law",
+            summary_of_facts="Property Group LLC is seeking a variance from the city zoning board for a new commercial development.",
+            key_dates=["07/10/2024"]
+        ).dict())
+        
+        structured_intake_global = json.dumps(CaseIntake(
+            client_name="Global Services Ltd.",
+            opposing_party="Former Employee",
+            case_type="Employment Litigation",
+            summary_of_facts="Global Services Ltd. is involved in litigation with a former employee regarding wrongful termination allegations.",
+            key_dates=["04/01/2023", "09/15/2023"]
+        ).dict())
+
+        structured_intake_strategic = json.dumps(CaseIntake(
+            client_name="Strategic Ventures Co.",
+            opposing_party="Merger Partner Corp",
+            case_type="Corporate Law",
+            summary_of_facts="Strategic Ventures Co. is undergoing a merger with Merger Partner Corp, requiring extensive legal due diligence.",
+            key_dates=["05/01/2024", "08/30/2024"]
+        ).dict())
+
+        await database.execute_many(cases.insert(), [
+            {
+                "case_id": f"CASE-{uuid.uuid4().hex[:8].upper()}",
+                "caller_phone_number": "+15551234567", # Matches Acme Corp
+                "status": "Open",
+                "structured_intake": structured_intake_acme,
+                "call_summary": "Initial consultation on contract dispute.",
+                "full_transcript": "User: Hi, I'm from Acme Corp. We have a contract dispute. AI: Understood. Please provide details.",
+                "follow_up_notes": json.dumps([]),
+                "assigned_to": "Sarah Johnson",
+                "last_updated_at": datetime.utcnow()
+            },
+            {
+                "case_id": f"CASE-{uuid.uuid4().hex[:8].upper()}",
+                "caller_phone_number": "+15559876543", # Matches Tech Innovators
+                "status": "In Progress",
+                "structured_intake": structured_intake_tech,
+                "call_summary": "Discussion about patent infringement defense strategy.",
+                "full_transcript": "User: We're being sued for patent infringement. AI: I understand. Let's discuss your defense.",
+                "follow_up_notes": json.dumps([{"timestamp": datetime.utcnow().isoformat(), "summary": "Discussed strategy for patent case."}]),
+                "assigned_to": "David Lee",
+                "last_updated_at": datetime.utcnow() - timedelta(days=1)
+            },
+            {
+                "case_id": f"CASE-{uuid.uuid4().hex[:8].upper()}",
+                "caller_phone_number": "+15551112222", # Matches Property Group
+                "status": "Closed",
+                "structured_intake": structured_intake_property,
+                "call_summary": "Case resolved, zoning variance granted.",
+                "full_transcript": "User: The zoning board approved our variance. AI: Excellent news!",
+                "follow_up_notes": json.dumps([]),
+                "assigned_to": "Emily Chen",
+                "last_updated_at": datetime.utcnow() - timedelta(days=2)
+            },
+            {
+                "case_id": f"CASE-{uuid.uuid4().hex[:8].upper()}",
+                "caller_phone_number": "+15553334444", # Matches Global Services
+                "status": "Open",
+                "structured_intake": structured_intake_global,
+                "call_summary": "Initial review of employment litigation claim.",
+                "full_transcript": "User: I need help with a former employee's claim. AI: Tell me more.",
+                "follow_up_notes": json.dumps([]),
+                "assigned_to": "Michael Brown",
+                "last_updated_at": datetime.utcnow() - timedelta(days=3)
+            },
+            {
+                "case_id": f"CASE-{uuid.uuid4().hex[:8].upper()}",
+                "caller_phone_number": "+15555556666", # Matches Strategic Ventures
+                "status": "In Progress",
+                "structured_intake": structured_intake_strategic,
+                "call_summary": "Discussion on legal aspects of corporate merger.",
+                "full_transcript": "User: We are planning a merger. AI: What are your legal concerns?",
+                "follow_up_notes": json.dumps([]),
+                "assigned_to": "Jessica White",
+                "last_updated_at": datetime.utcnow() - timedelta(days=4)
+            }
+        ])
 
         print("--- Inserting sample contract data ---")
-        
-        await database.execute(contracts.insert().values(
-            contract_id=uuid.uuid4().hex[:8].upper(), # <--- ADDED for contracts as well
-            name="Acme Corp Agreement", status="Active", signed_date=datetime.utcnow() - timedelta(days=30), client_id=acme_client.id if acme_client else None
-        ))
-        await database.execute(contracts.insert().values(
-            contract_id=uuid.uuid4().hex[:8].upper(), # <--- ADDED for contracts as well
-            name="Tech Innovators Partnership", status="Active", signed_date=datetime.utcnow() - timedelta(days=60), client_id=tech_client.id if tech_client else None
-        ))
-        await database.execute(contracts.insert().values(
-            contract_id=uuid.uuid4().hex[:8].upper(), # <--- ADDED for contracts as well
-            name="Expired Contract A", status="Expired", signed_date=datetime.utcnow() - timedelta(days=365), expiration_date=datetime.utcnow() - timedelta(days=5)
-        ))
-        await database.execute(contracts.insert().values(
-            contract_id=uuid.uuid4().hex[:8].upper(), # <--- ADDED for contracts as well
-            name="Pending Review B", status="Review", signed_date=datetime.utcnow() - timedelta(days=10)
-        ))
+        await database.execute_many(contracts.insert(), [
+            {
+                "contract_id": uuid.uuid4().hex[:8].upper(),
+                "name": "Acme Corp Agreement",
+                "status": "Active",
+                "signed_date": datetime.utcnow() - timedelta(days=30),
+                "client_id": acme_client_record.id if acme_client_record else None
+            },
+            {
+                "contract_id": uuid.uuid4().hex[:8].upper(),
+                "name": "Tech Innovators Partnership",
+                "status": "Active",
+                "signed_date": datetime.utcnow() - timedelta(days=60),
+                "client_id": tech_client_record.id if tech_client_record else None
+            },
+            {
+                "contract_id": uuid.uuid4().hex[:8].upper(),
+                "name": "Expired Contract A",
+                "status": "Expired",
+                "signed_date": datetime.utcnow() - timedelta(days=365),
+                "expiration_date": datetime.utcnow() - timedelta(days=5)
+            },
+            {
+                "contract_id": uuid.uuid4().hex[:8].upper(),
+                "name": "Pending Review B",
+                "status": "Review",
+                "signed_date": datetime.utcnow() - timedelta(days=10)
+            }
+        ])
 
         print("--- Inserting sample activity data ---")
         await database.execute_many(activities.insert(), [
@@ -154,24 +270,56 @@ async def insert_sample_dashboard_data():
         ])
 
         print("--- Inserting sample task/deadline data ---")
-        # Get a sample case_id to link tasks
-        sample_case_record = await database.fetch_one(select(cases.c.id).limit(1)) # Fetch one existing case
+        # Get a sample case_id to link tasks (fetch from cases just inserted)
+        # Fix: Cast structured_intake to Text before using .contains() / LIKE
+        sample_case_record = await database.fetch_one(
+            select(cases.c.id)
+            .where(cast(cases.c.structured_intake, Text).contains("Acme Corp"))
+            .limit(1)
+        ) # Link to Acme's case
         sample_case_id = sample_case_record.id if sample_case_record else None
         
         await database.execute_many(tasks.insert(), [
-            {"task_id": uuid.uuid4().hex[:8].upper(),"title": "Review contract for Acme Corp", "task_type": "Review", "due_date": datetime.utcnow() + timedelta(days=2), "status": "Pending", "assigned_to": "Alex"},
-            {"task_id": uuid.uuid4().hex[:8].upper(),"title": "Prepare for deposition in Smith v. Jones", "task_type": "Litigation", "due_date": datetime.utcnow() + timedelta(days=5), "status": "In Progress", "assigned_to": "Sarah Johnson", "related_case_id": sample_case_id},
-            {"task_id": uuid.uuid4().hex[:8].upper(),"title": "Review compliance report for Johnson v. Williams", "task_type": "Compliance", "due_date": datetime.utcnow() + timedelta(days=7), "status": "Pending"},
-            {"task_id": uuid.uuid4().hex[:8].upper(),"title": "Draft initial client intake form", "task_type": "Intake", "due_date": datetime.utcnow() + timedelta(days=1), "status": "Pending", "assigned_to": "Alex"},
-            {"task_id": uuid.uuid4().hex[:8].upper(),"title": "Follow up on client XYZ", "task_type": "Communication", "due_date": datetime.utcnow() + timedelta(days=10), "status": "Pending"},
+            {"task_id": uuid.uuid4().hex[:8].upper(), "title": "Review contract for Acme Corp", "task_type": "Review", "due_date": datetime.utcnow() + timedelta(days=2), "status": "Pending", "assigned_to": "Alex"},
+            {"task_id": uuid.uuid4().hex[:8].upper(), "title": "Prepare for deposition in Smith v. Jones", "task_type": "Litigation", "due_date": datetime.utcnow() + timedelta(days=5), "status": "In Progress", "assigned_to": "Sarah Johnson", "related_case_id": sample_case_id},
+            {"task_id": uuid.uuid4().hex[:8].upper(), "title": "Review compliance report for Johnson v. Williams", "task_type": "Compliance", "due_date": datetime.utcnow() + timedelta(days=7), "status": "Pending"},
+            {"task_id": uuid.uuid4().hex[:8].upper(), "title": "Draft initial client intake form", "task_type": "Intake", "due_date": datetime.utcnow() + timedelta(days=1), "status": "Pending", "assigned_to": "Alex"},
+            {"task_id": uuid.uuid4().hex[:8].upper(), "title": "Follow up on client XYZ", "task_type": "Communication", "due_date": datetime.utcnow() + timedelta(days=10), "status": "Pending"},
         ])
 
         print("--- Inserting sample notification data ---")
         await database.execute_many(notifications.insert(), [
-            {"message": "Contract for Acme Corp requires your review", "notification_type": "Contract Review", "is_read": False, "created_at": datetime.utcnow() - timedelta(minutes=30), "related_url": "/documents"},
-            {"message": "New case law found for Smith v. Jones", "notification_type": "Legal Research", "is_read": False, "created_at": datetime.utcnow() - timedelta(hours=1), "related_url": "/research"},
-            {"message": "Case status updated for Johnson v. Williams", "notification_type": "Case Status", "is_read": False, "created_at": datetime.utcnow() - timedelta(hours=2), "related_url": "/cases"},
-            {"message": "Welcome to LegalAI!", "notification_type": "Welcome", "is_read": True, "created_at": datetime.utcnow() - timedelta(days=1)},
+            {
+                "id": 1, # Explicit ID
+                "message": "Contract for Acme Corp requires your review",
+                "notification_type": "Contract Review",
+                "is_read": False,
+                "created_at": datetime.utcnow() - timedelta(minutes=30),
+                "related_url": "/documents"
+            },
+            {
+                "id": 2, # Explicit ID
+                "message": "New case law found for Smith v. Jones",
+                "notification_type": "Legal Research",
+                "is_read": False,
+                "created_at": datetime.utcnow() - timedelta(hours=1),
+                "related_url": "/research"
+            },
+            {
+                "id": 3, # Explicit ID
+                "message": "Case status updated for Johnson v. Williams",
+                "notification_type": "Case Status",
+                "is_read": False,
+                "created_at": datetime.utcnow() - timedelta(hours=2),
+                "related_url": "/cases"
+            },
+            {
+                "id": 4, # Explicit ID
+                "message": "Welcome to LegalAI!",
+                "notification_type": "Welcome",
+                "is_read": True,
+                "created_at": datetime.utcnow() - timedelta(days=1)
+            },
         ])
         print("--- Sample dashboard data inserted successfully ---")
     else:
@@ -523,23 +671,128 @@ async def handle_audio_transcription(audio_file: UploadFile = File(...)):
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
 
-# --- Existing Cases Endpoint ---
-@app.get("/api/cases")
+# --- MODIFIED /api/cases endpoint ---
+@app.get("/api/cases", response_model=List[Case])
 async def get_all_cases():
     """
-    Fetches all case records from the database.
+    Fetches all case records from the database, formatted for the UI.
     """
     print("--- Fetching all cases from the database ---")
     try:
-        query = select(cases)
-        all_cases = await database.fetch_all(query)
-        # Convert the list of RowProxy objects to a list of dictionaries
-        return [dict(case) for case in all_cases]
+        # Explicitly select all columns needed by the Case Pydantic model
+        # This makes it robust against internal caching issues or implicit column selection.
+        query = select(
+            cases.c.id,
+            cases.c.case_id,
+            cases.c.caller_phone_number,
+            cases.c.status,
+            cases.c.structured_intake,
+            cases.c.call_summary,
+            cases.c.full_transcript,
+            cases.c.follow_up_notes,
+            cases.c.created_at,
+            cases.c.vapi_call_id,
+            cases.c.assigned_to,
+            cases.c.last_updated_at, # Explicitly selected here
+            clients.c.name.label("client_actual_name") # From the join
+        ).outerjoin(clients, cases.c.caller_phone_number == clients.c.phone_number)
+        
+        all_case_records = await database.fetch_all(query)
+        
+        result_cases = []
+        for record in all_case_records:
+            # Convert SQLAlchemy Row to a mutable dictionary
+            case_dict = dict(record)
+            
+            print(f"DEBUG (get_all_cases): Raw record dict keys: {case_dict.keys()}")
+            print(f"DEBUG (get_all_cases): Value of last_updated_at from DB: {case_dict.get('last_updated_at')}")
+            # Ensure 'last_updated_at' key is always present, even if its value is None from DB for old records
+            db_last_updated_at = case_dict.get('last_updated_at')
+            if db_last_updated_at is None:
+                # Fallback to created_at if last_updated_at is null or not found
+                case_dict['last_updated_at'] = case_dict['created_at'] 
+                print(f"DEBUG (get_all_cases): last_updated_at was None/Missing, defaulting to created_at: {case_dict['last_updated_at']}")
+            else:
+                # Ensure it's a datetime object. databases/asyncpg usually does this, but being explicit.
+                if not isinstance(db_last_updated_at, datetime):
+                    try:
+                        case_dict['last_updated_at'] = datetime.fromisoformat(str(db_last_updated_at))
+                        print(f"DEBUG (get_all_cases): Converted last_updated_at string to datetime: {case_dict['last_updated_at']}")
+                    except ValueError:
+                        print(f"WARNING (get_all_cases): Could not convert last_updated_at '{db_last_updated_at}' to datetime, defaulting to created_at.")
+                        case_dict['last_updated_at'] = case_dict['created_at']
+
+
+            # Parse structured_intake JSON
+            structured_intake_data = {}
+            if case_dict.get('structured_intake'): # Use .get() for safety
+                try:
+                    if isinstance(case_dict['structured_intake'], str):
+                         structured_intake_data = json.loads(case_dict['structured_intake'])
+                    else:
+                         structured_intake_data = case_dict['structured_intake']
+                except (json.JSONDecodeError, TypeError):
+                    print(f"Warning: Could not parse structured_intake for case {case_dict.get('case_id')}")
+                    structured_intake_data = {}
+            
+            # Derive 'case_name', 'client_name', 'type'
+            case_name = structured_intake_data.get('summary_of_facts', 'N/A')
+            if len(case_name) > 50:
+                case_name = case_name[:50] + '...'
+
+            client_name = case_dict.get('client_actual_name')
+            if not client_name and structured_intake_data:
+                client_name = structured_intake_data.get('client_name', 'N/A')
+            if not client_name:
+                client_name = 'Unknown Client'
+
+            case_type = structured_intake_data.get('case_type', 'N/A')
+
+            # Handle follow_up_notes and ensure it's a list
+            follow_up_notes_parsed = []
+            if case_dict.get('follow_up_notes'):
+                try:
+                    if isinstance(case_dict['follow_up_notes'], str):
+                        follow_up_notes_parsed = json.loads(case_dict['follow_up_notes'])
+                    else:
+                        follow_up_notes_parsed = case_dict['follow_up_notes']
+                except (json.JSONDecodeError, TypeError):
+                    print(f"Warning: Could not parse follow_up_notes for case {case_dict.get('case_id')}")
+                    follow_up_notes_parsed = []
+            
+            if not isinstance(follow_up_notes_parsed, list):
+                print(f"Warning: follow_up_notes for case {case_dict.get('case_id')} not a list after parsing, resetting to empty.")
+                follow_up_notes_parsed = []
+# Ensure all keys Pydantic expects are present, even if their value is None
+            final_case_data_for_pydantic = {
+                "id": case_dict['id'],
+                "case_id": case_dict['case_id'],
+                "case_name": case_name,
+                "client_name": client_name,
+                "type": case_type,
+                "status": case_dict['status'],
+                "assigned_to": case_dict.get('assigned_to'),
+                "last_updated_at": case_dict['last_updated_at'], # This is the key Pydantic's alias looks for
+                "caller_phone_number": case_dict.get('caller_phone_number'),
+                "structured_intake": structured_intake_data,
+                "call_summary": case_dict.get('call_summary'),
+                "full_transcript": case_dict.get('full_transcript'),
+                "follow_up_notes": follow_up_notes_parsed,
+                "created_at": case_dict['created_at'],
+                "vapi_call_id": case_dict.get('vapi_call_id')
+            }
+            print(f"DEBUG (get_all_cases): Final dict for Pydantic (partial): id={final_case_data_for_pydantic['id']}, case_id={final_case_data_for_pydantic['case_id']}, last_updated_at={final_case_data_for_pydantic.get('last_updated_at')}, follow_up_notes_type={type(final_case_data_for_pydantic['follow_up_notes'])}")
+
+            # Use model_validate for robust Pydantic v2 validation
+            case_model = Case.model_validate(final_case_data_for_pydantic)
+            result_cases.append(case_model)
+
+        return result_cases
     except Exception as e:
         print(f"Error fetching cases: {e}")
-        # Use FastAPI's error handling in a real app
-        raise HTTPException(status_code=500, detail="Could not fetch cases") # Changed to HTTPException for consistent error handling
-
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Could not fetch cases")
 # --- RAG Document Endpoints (Existing) ---
 @app.post("/process-rag-documents")
 async def process_rag_documents(documents: List[UploadFile] = File(...)):
@@ -729,6 +982,65 @@ async def get_notifications():
     query = select(notifications).where(notifications.c.is_read == False).order_by(notifications.c.created_at.desc()).limit(5) # Top 5 unread
     notification_records = await database.fetch_all(query)
     return [Notification(**dict(record)) for record in notification_records]
+
+
+# --- NEW CLIENTS API ENDPOINT ---
+@app.get("/api/clients", response_model=List[Client])
+async def get_all_clients():
+    """
+    Fetches all client records from the database, including their case count.
+    """
+    print("--- Fetching all clients from the database ---")
+    try:
+        # Subquery to count cases per client (linked by phone_number for now,
+        # ideally by a client_id foreign key in the cases table)
+        case_counts_subquery = (
+            select(
+                cases.c.caller_phone_number,
+                func.count().label("num_cases")
+            )
+            .group_by(cases.c.caller_phone_number)
+            .alias("case_counts")
+        )
+
+        # Main query to select clients and join with case counts
+        query = (
+            select(
+                clients, # Select all columns from clients table
+                case_counts_subquery.c.num_cases # Select num_cases from subquery
+            )
+            .outerjoin(
+                case_counts_subquery,
+                clients.c.phone_number == case_counts_subquery.c.caller_phone_number
+            )
+            .order_by(clients.c.name.asc())
+        )
+
+        client_records = await database.fetch_all(query)
+        
+        # Manually construct Client Pydantic models to include num_cases
+        result_clients = []
+        for record in client_records:
+            client_dict = dict(record)
+            # Ensure 'num_cases' is an integer, default to 0 if NULL (no cases)
+            client_dict['num_cases'] = client_dict['num_cases'] if client_dict['num_cases'] is not None else 0
+            
+            # Remove any extra fields from the raw record that are not in the Client schema
+            # This is important if you select 'clients' and the join adds more.
+            # Convert datetime objects to ISO format if Pydantic doesn't handle it implicitly
+            client_dict['last_activity_at'] = client_dict['last_activity_at'].isoformat() if isinstance(client_dict['last_activity_at'], datetime) else client_dict['last_activity_at']
+            client_dict['created_at'] = client_dict['created_at'].isoformat() if isinstance(client_dict['created_at'], datetime) else client_dict['created_at']
+
+
+            # Create the Pydantic model
+            result_clients.append(Client(**client_dict))
+
+        return result_clients
+    except Exception as e:
+        print(f"Error fetching clients: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Could not fetch clients")
 
 
 # --- Static Files Mounting ---

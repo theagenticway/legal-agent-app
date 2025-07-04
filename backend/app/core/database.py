@@ -24,14 +24,13 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 engine = create_engine(DATABASE_URL)
 metadata = MetaData()
 
-# Define the 'cases' table (existing)
+
+# Define the 'cases' table (updated)
 cases = Table(
     "cases",
     metadata,
     Column("id", Integer, primary_key=True),
-    # client_id is now explicitly generated in main.py before insert.
-    # So remove the 'default' here to accurately reflect its handling.
-    Column("case_id", String(50), unique=True, nullable=False), # No default here
+    Column("case_id", String(50), unique=True, nullable=False),
     Column("caller_phone_number", String(50)),
     Column("status", String(50), default="Pending Review"),
     Column("structured_intake", JSON),
@@ -40,6 +39,8 @@ cases = Table(
     Column("follow_up_notes", JSONB),
     Column("created_at", DateTime, default=func.now(), nullable=False),
     Column("vapi_call_id", String(100), nullable=True),
+    Column("assigned_to", String(255), nullable=True), # NEW: Added assigned_to
+    Column("last_updated_at", DateTime, default=func.now(), onupdate=func.now(), nullable=False), # NEW: Added last_updated_at
 )
 
 # --- NEW TABLE: indexed_rag_documents (existing) ---

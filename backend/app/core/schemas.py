@@ -69,3 +69,46 @@ class DashboardData(BaseModel):
     recent_activity: List[RecentActivity]
     upcoming_deadlines: List[UpcomingDeadline]
     notifications: List[Notification]
+
+    # --- NEW CLIENTS-RELATED SCHEMAS ---
+class Client(BaseModel):
+    id: int
+    client_id: str
+    name: str
+    contact_email: str
+    phone_number: Optional[str] = None
+    status: str
+    last_activity_at: datetime
+    created_at: datetime
+    notes: Optional[str] = None
+    # Optional: Add a field for the count of cases,
+    # as this is displayed on the frontend.
+    # This won't be directly from the 'clients' table, but from a join/subquery.
+    num_cases: int = 0 # Default to 0, will be populated by API logic
+
+    # --- NEW CASES-RELATED SCHEMAS ---
+class Case(BaseModel):
+    id: int
+    case_id: str
+    case_name: str = Field(description="Derived name for the case, e.g., 'Contract Dispute' or 'Intellectual Property'.")
+    client_name: str = Field(description="The name of the client associated with this case.")
+    type: str = Field(description="The high-level classification of the case type.")
+    status: str
+    assigned_to: Optional[str] = None
+    last_updated: datetime = Field(alias="last_updated_at")# Map to last_updated_at from DB
+    
+    # These fields are for details view, not directly in the table
+    caller_phone_number: Optional[str] = None
+    structured_intake: Dict[str, Any] # This is the parsed JSON
+    call_summary: Optional[str] = None
+    full_transcript: Optional[str] = None
+    follow_up_notes: List[Dict[str, Any]] = [] # This is the parsed JSONB list
+    created_at: datetime
+    vapi_call_id: Optional[str] = None
+        # This configuration tells Pydantic how to handle aliases for input data
+    class Config:
+        populate_by_name = True # Allow setting fields by their alias (Pydantic v1)
+        # For Pydantic v2, `from_attributes = True` is used for ORM models,
+        # but for dict input, aliases should work directly.
+        # Let's add it anyway as it can help with mappings
+        from_attributes = True

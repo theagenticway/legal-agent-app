@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <script src="https://unpkg.com/feather-icons"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/list.js/2.3.1/list.min.js"></script> <!-- For client table sorting/search -->
 </head>
 <body>
     <div class="app-container">
@@ -75,25 +76,37 @@
 
             <!-- Page Specific Content -->
             <main class="main-content">
-                <section class="card p-6">
-                    <p style="text-align: center; color: var(--text-secondary); margin-top: 50px;">Clients screen content coming soon!</p>
+                <section class="card p-6" id="clients-dashboard">
+                    <div class="flex items-center justify-between mb-4">
+                        <input type="text" class="input-field search-bar" id="search-clients" placeholder="Search clients..." style="max-width: 300px;">
+                        <button class="button primary-button">
+                            <i data-feather="plus"></i> New Client
+                        </button>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th class="sort" data-sort="name">Client</th>
+                                    <th class="sort" data-sort="contact_email">Contact</th>
+                                    <th class="sort" data-sort="num_cases">Cases</th>
+                                    <th class="sort" data-sort="last_activity_at">Last Activity</th>
+                                    <th class="sort" data-sort="status">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody class="list" id="clients-list-body">
+                                <!-- Table rows injected by JS -->
+                                <tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">Loading clients...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </section>
             </main>
         </div>
     </div>
 
     <script src="js/global.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            feather.replace();
-            const path = window.location.pathname.split('/').pop();
-            const navLinks = document.querySelectorAll('.sidebar-nav .nav-item');
-            navLinks.forEach(link => {
-                if (link.getAttribute('href') === path) {
-                    link.classList.add('active');
-                }
-            });
-        });
-    </script>
+    <script src="js/clients.js"></script> <!-- Link to the new clients.js -->
 </body>
 </html>

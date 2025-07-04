@@ -1,24 +1,10 @@
-// frontend/js/dashboard.js
+// frontend/js/cases.js
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Dashboard Table Functionality (List.js)
-    const caseListOptions = {
-        valueNames: ['case_id', 'status', 'caller_phone_number', 'created_at'],
-        item: '<tr class="case-item"><td class="case_id"></td><td class="status"></td><td class="caller_phone_number"></td><td class="created_at"></td><td><button class="summarize-btn button secondary-button" style="margin-right: 8px;">Summarize</button><button class="view-details-btn button secondary-button">View Details</button></td></tr>'
-    };
+document.addEventListener('DOMContentLoaded', async () => {
+    feather.replace(); // Ensure icons are rendered
 
-    let caseList = null; // Will hold the List.js instance
-    let allCasesData = []; // Store full case data for details view
-
-    const caseDetailsDisplay = document.getElementById('case-details-display');
-    const detailsCaseId = document.getElementById('details-case-id');
-    const detailsStatus = document.getElementById('details-status');
-    const detailsPhone = document.getElementById('details-phone');
-    const detailsCreated = document.getElementById('details-created');
-    const detailsSummary = document.getElementById('details-summary');
-    const detailsStructuredIntake = document.getElementById('details-structured-intake');
-    const detailsFullTranscript = document.getElementById('details-full-transcript');
-    const detailsFollowUpNotes = document.getElementById('details-follow-up-notes');
+    let caseList; // To hold the List.js instance
+    let allCasesData = []; // Store the full fetched data for filtering
 
     async function fetchCases() {
         try {
@@ -26,102 +12,138 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-            allCasesData = await response.json(); // Store full data
-            console.log('Fetched cases:', allCasesData);
-
-            // Format dates for display in the table
-            const formattedCases = allCasesData.map(c => ({
-                ...c,
-                created_at: new Date(c.created_at).toLocaleDateString('en-US', {
-                    year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-                })
+            const data = await response.json();
+            // Process data for display and List.js
+            return data.map(c => ({
+                ...c, // Spread all properties from the backend Case schema
+                last_updated_display: new Date(c.last_updated).toLocaleString(), // Format date for display
+                created_at_display: new Date(c.created_at).toLocaleString(), // Format date for display
+                // Note: structured_intake and follow_up_notes are already objects/arrays if parsed correctly by FastAPI
             }));
-
-            if (!caseList) {
-                caseList = new List('cases-dashboard', caseListOptions, formattedCases);
-                console.log('List.js initialized with cases.');
-            } else {
-                caseList.clear();
-                caseList.add(formattedCases);
-                console.log('List.js updated with new cases.');
-            }
-
-            // Add event listeners to summarize and view buttons
-            document.querySelectorAll('.summarize-btn').forEach(button => {
-                button.onclick = async (event) => {
-                    const row = event.target.closest('tr');
-                    const caseId = row.querySelector('.case_id').textContent;
-                    const originalCase = allCasesData.find(c => c.case_id === caseId);
-
-                    if (originalCase && originalCase.full_transcript) {
-                        const transcriptToSummarize = originalCase.full_transcript;
-                        const phone = originalCase.caller_phone_number;
-                        const summaryQuery = `Please summarize the call transcript for case ID ${caseId} from phone number ${phone}:\n\n${transcriptToSummarize}`;
-                        // Redirect to agent chat and send the query
-                        sessionStorage.setItem('agentChatInitialQuery', summaryQuery);
-                        window.location.href = 'agent.html';
-
-                    } else {
-                        alert('Full transcript not available for this case.');
-                    }
-                };
-            });
-
-            document.querySelectorAll('.view-details-btn').forEach(button => {
-                button.onclick = (event) => {
-                    const row = event.target.closest('tr');
-                    const caseId = row.querySelector('.case_id').textContent;
-                    const caseToDisplay = allCasesData.find(c => c.case_id === caseId);
-                    displayCaseDetails(caseToDisplay);
-                };
-            });
-
         } catch (error) {
-            console.error('Error fetching cases:', error);
-            const dashboardTableBody = document.querySelector('#cases-dashboard .list');
-            if (dashboardTableBody) {
-                dashboardTableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-secondary);">Error loading cases: ${error.message}</td></tr>`;
+            console.error("Error fetching cases:", error);
+            document.getElementById('cases-list-body').innerHTML = `<tr><td colspan="6" class="text-secondary" style="text-align: center;">Error loading cases.</td></tr>`;
+            return [];
+        }
+    }
+
+    allCasesData = await fetchCases(); // Fetch data once
+
+    var options = {
+        valueNames: [
+            'case_name',
+            'client_name',
+            'type',
+            { name: 'status', attr: 'data-status' }, // Use data-status for filtering if needed
+            'assigned_to',
+            'last_updated_display'
+        ],
+        item: `<tr>
+                    <td class="case_name"></td>
+                    <td class="client_name"></td>
+                    <td class="type"></td>
+                    <td><span class="status-badge status"></span></td>
+                    <td class="assigned_to"></td>
+                    <td class="last_updated_display"></td>
+               </tr>`
+    };
+
+    caseList = new List('cases-section', options, allCasesData); // Target the cases-section ID
+
+    // Apply status-badge classes after List.js renders
+    caseList.on('updated', function (list) {
+        list.items.forEach(item => {
+            const statusElement = item.elm.querySelector('.status-badge');
+            if (statusElement) {
+                const statusValue = statusElement.textContent.toLowerCase().replace(' ', '-');
+                statusElement.className = `status-badge status-badge-${statusValue}`;
+            }
+        });
+        feather.replace(); // Re-render feather icons in dynamically added content
+    });
+
+    // Initial apply for already rendered items
+    caseList.update();
+
+    // Search functionality for List.js
+    document.getElementById('search-cases').addEventListener('keyup', function() {
+        caseList.search(this.value);
+    });
+
+    // Handle filter buttons
+    document.getElementById('case-filters').addEventListener('click', function(event) {
+        const button = event.target.closest('button');
+        if (button && button.dataset.filter) {
+            document.querySelectorAll('#case-filters .button').forEach(btn => btn.classList.remove('active-tab'));
+            button.classList.add('active-tab');
+
+            const filterType = button.dataset.filter;
+            caseList.filter(function(item) {
+                const values = item.values();
+                if (filterType === 'all') {
+                    return true;
+                } else if (filterType === 'my') {
+                    // Assuming 'Alex' is the current user for 'My Cases'
+                    // In a real app, this would come from user session/authentication
+                    return values.assigned_to === 'Alex';
+                } else if (filterType === 'unassigned') {
+                    return !values.assigned_to || values.assigned_to === 'Unassigned';
+                }
+                return false;
+            });
+            caseList.update(); // Re-apply sorting/filtering
+        }
+    });
+
+    // Case Details Display Logic
+    document.getElementById('cases-list-body').addEventListener('click', (event) => {
+        const row = event.target.closest('tr');
+        if (row) {
+            // Find the original data item for the clicked row
+            // We'll use the unique 'case_id' to find the full data object
+            const caseIdInRow = row.querySelector('.case_name').textContent.replace('...', ''); // Assuming first part matches case_id
+            const fullCase = allCasesData.find(c => c.case_id.startsWith(caseIdInRow)); // Use startsWith to match partial name
+
+            if (fullCase) {
+                document.getElementById('details-case-id').textContent = fullCase.case_id;
+                
+                const statusBadge = document.getElementById('details-status');
+                statusBadge.textContent = fullCase.status;
+                // Ensure the class name is consistent with CSS: status-badge-<status-value-lowercase-hyphenated>
+                statusBadge.className = `status-badge status-badge-${fullCase.status.toLowerCase().replace(' ', '-')}`;
+                
+                document.getElementById('details-assigned-to').textContent = fullCase.assigned_to || 'Unassigned';
+                document.getElementById('details-client-name').textContent = fullCase.client_name;
+                document.getElementById('details-phone').textContent = fullCase.caller_phone_number || 'N/A';
+                document.getElementById('details-case-type').textContent = fullCase.type;
+                document.getElementById('details-created').textContent = fullCase.created_at_display;
+                document.getElementById('details-last-updated').textContent = fullCase.last_updated_display;
+                document.getElementById('details-vapi-call-id').textContent = fullCase.vapi_call_id || 'N/A';
+
+                document.getElementById('details-summary').textContent = fullCase.call_summary || 'No summary available.';
+                document.getElementById('details-structured-intake').textContent = JSON.stringify(fullCase.structured_intake, null, 2);
+                document.getElementById('details-full-transcript').textContent = fullCase.full_transcript || 'No full transcript available.';
+
+                const notesList = document.getElementById('details-follow-up-notes');
+                notesList.innerHTML = ''; // Clear previous notes
+                if (fullCase.follow_up_notes && fullCase.follow_up_notes.length > 0) {
+                    fullCase.follow_up_notes.forEach(note => {
+                        const li = document.createElement('li');
+                        li.className = 'py-2 border-b border-border-color'; // Add some styling
+                        const noteTimestamp = new Date(note.timestamp).toLocaleString();
+                        li.innerHTML = `<strong>${noteTimestamp}:</strong> ${note.summary}`;
+                        notesList.appendChild(li);
+                    });
+                } else {
+                    notesList.innerHTML = `<li class="text-secondary">No follow-up notes.</li>`;
+                }
+
+                document.getElementById('case-details-display').style.display = 'block';
+                feather.replace(); // Re-render icons in details section
             }
         }
-    }
+    });
 
-    function displayCaseDetails(caseData) {
-        if (!caseData) {
-            caseDetailsDisplay.style.display = 'none';
-            return;
-        }
-
-        detailsCaseId.textContent = caseData.case_id || 'N/A';
-        detailsStatus.textContent = caseData.status || 'N/A';
-        detailsPhone.textContent = caseData.caller_phone_number || 'N/A';
-        detailsCreated.textContent = new Date(caseData.created_at).toLocaleString() || 'N/A';
-        detailsSummary.textContent = caseData.call_summary || 'N/A';
-
-        try {
-            detailsStructuredIntake.textContent = JSON.stringify(caseData.structured_intake, null, 2) || 'No structured intake data.';
-        } catch (e) {
-            detailsStructuredIntake.textContent = caseData.structured_intake || 'Malformed structured intake data.';
-        }
-
-        detailsFullTranscript.textContent = caseData.full_transcript || 'No full transcript available.';
-
-        detailsFollowUpNotes.innerHTML = '';
-        if (caseData.follow_up_notes && caseData.follow_up_notes.length > 0) {
-            caseData.follow_up_notes.forEach(note => {
-                const li = document.createElement('li');
-                li.style.marginBottom = '10px';
-                li.innerHTML = `<strong>${new Date(note.timestamp).toLocaleString()}:</strong> ${note.summary}<br><small>${note.transcript.substring(0, 150)}...</small>`;
-                detailsFollowUpNotes.appendChild(li);
-            });
-        } else {
-            detailsFollowUpNotes.innerHTML = '<li>No follow-up notes.</li>';
-        }
-
-        caseDetailsDisplay.style.display = 'block';
-        caseDetailsDisplay.scrollIntoView({ behavior: 'smooth' }); // Scroll to details
-    }
-
-
-    fetchCases();
-    setInterval(fetchCases, 30000);
+    // Initial load and display
+    caseList.update();
 });
